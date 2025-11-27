@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BotAccount, DEFAULT_INSTRUCTION } from '../types';
-import { Save, RefreshCw, ChevronDown, Check, Smartphone, Cloud, UploadCloud, Loader2, Power, Key, ExternalLink, ShieldAlert, Eye, EyeOff, HelpCircle, X, Server, FileUp, Globe, MonitorOff, Download, FileJson, FileCode, Terminal, Link as LinkIcon } from 'lucide-react';
+import { Save, RefreshCw, ChevronDown, Check, Smartphone, Cloud, UploadCloud, Loader2, Power, Key, ExternalLink, ShieldAlert, Eye, EyeOff, HelpCircle, X, Server, FileUp, Globe, MonitorOff, Download, FileJson, FileCode, Terminal, Link as LinkIcon, Zap } from 'lucide-react';
 
 interface ConfigScreenProps {
   account: BotAccount;
@@ -74,7 +74,7 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
     }
   };
 
-  // --- GENERATION LOGIC FOR REAL SERVER CODE ---
+  // --- GENERATION LOGIC FOR REAL SERVER CODE (BAILEYS EDITION) ---
   const downloadFile = (filename: string, content: string) => {
     const element = document.createElement('a');
     const file = new Blob([content], {type: 'text/plain'});
@@ -88,17 +88,17 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
   const generatePackageJson = () => {
     const pkg = {
       "name": `whatsapp-bot-${account.name.toLowerCase().replace(/\s+/g, '-')}`,
-      "version": "3.1.0",
-      "description": "Bot WhatsApp generato da BotManager Pro v3.1 Debug",
+      "version": "4.0.0",
+      "description": "Bot WhatsApp Lightweight (Baileys) per Shared Hosting",
       "main": "server.js",
       "scripts": {
         "start": "node server.js"
       },
       "dependencies": {
-        "whatsapp-web.js": "^1.23.0",
+        "@whiskeysockets/baileys": "^6.6.0",
         "qrcode": "^1.5.3", 
         "@google/genai": "^1.30.0",
-        "dotenv": "^16.0.0"
+        "pino": "^7.0.0"
       },
       "engines": {
         "node": ">=18.0.0"
@@ -109,25 +109,28 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
 
   const generateServerJs = () => {
     const content = `/**
- * BOT WA GENERATO AUTOMATICAMENTE - VERSIONE V3.1 (DEBUG + CHARSET FIX)
- * Configurazione per: ${account.name}
- * Data generazione: ${new Date().toLocaleString()}
+ * BOT WA V4.0 - LIGHTWEIGHT EDITION (NO CHROME)
+ * Motore: Baileys (WebSocket)
+ * Compatibile con FastComet/cPanel Shared Hosting
+ * Configurazione: ${account.name}
  */
 
 const http = require('http');
-const { Client, LocalAuth } = require('whatsapp-web.js');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
 const qrcode = require('qrcode');
 const { GoogleGenAI } = require("@google/genai");
+const pino = require('pino');
+const fs = require('fs');
 
-// --- FIX 503 CPANEL: AVVIARE SERVER WEB PRIMA DI QUALSIASI ALTRA COSA ---
+// --- SERVER WEB PER CPANEL KEEP-ALIVE ---
 const PORT = process.env.PORT || 3000;
 
 // Stato Globale
 let qrCodeDataUrl = '';
-let statusMessage = 'Avvio Server Web... Inizializzazione WhatsApp fra 5 secondi...';
+let statusMessage = 'Avvio Socket WhatsApp...';
 let isConnected = false;
 let logs = [];
-let errorDetail = '';
+let retryCount = 0;
 
 function addLog(msg) {
     const time = new Date().toLocaleTimeString();
@@ -136,44 +139,44 @@ function addLog(msg) {
     console.log(msg);
 }
 
-// 1. Creazione Server Web Istantanea
+// Configurazione AI
+const API_KEY = "${localConfig.apiKey || ''}";
+const SYSTEM_INSTRUCTION = \`${localConfig.systemInstruction.replace(/`/g, '\\`')}\`;
+let ai;
+try {
+    ai = new GoogleGenAI({ apiKey: API_KEY });
+} catch (e) { addLog("Errore AI config: " + e.message); }
+
+
+// 1. Web Server UI
 const server = http.createServer((req, res) => {
-    // FIX CHARSET: Aggiunto charset=utf-8 per evitare caratteri strani
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     
     let html = \`
     <!DOCTYPE html>
     <html>
         <head>
-            <title>Bot Panel: ${account.name}</title>
-            <meta http-equiv="refresh" content="5">
+            <title>Bot Panel v4.0: ${account.name}</title>
+            <meta http-equiv="refresh" content="3">
             <meta name="viewport" content="width=device-width, initial-scale=1">
             <style>
-                body { font-family: -apple-system, sans-serif; background: #f0f2f5; color: #111b21; padding: 20px; text-align: center; }
+                body { font-family: sans-serif; background: #f0f2f5; color: #111b21; padding: 20px; text-align: center; }
                 .card { background: white; max-width: 600px; margin: 0 auto; padding: 30px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
                 .status-badge { display: inline-block; padding: 8px 16px; border-radius: 20px; font-weight: bold; margin-bottom: 20px; font-size: 14px; }
                 .online { background: #d9fdd3; color: #008069; }
                 .wait { background: #e9edef; color: #111b21; }
-                .error { background: #ffe6e6; color: #cc0000; }
                 .log-box { text-align: left; background: #1f2937; color: #00ff00; padding: 15px; border-radius: 8px; font-size: 11px; margin-top: 20px; max-height: 300px; overflow-y: auto; font-family: monospace; white-space: pre-wrap; }
             </style>
         </head>
         <body>
             <div class="card">
-                <h1>🤖 ${account.name}</h1>
-                <div class="status-badge \${errorDetail ? 'error' : (isConnected ? 'online' : 'wait')}">
-                    \${errorDetail ? '⚠️ ERRORE CRITICO' : (isConnected ? '✅ ONLINE' : '⏳ STATO: ' + statusMessage)}
+                <h1>⚡ ${account.name} (Light)</h1>
+                <div class="status-badge \${isConnected ? 'online' : 'wait'}">
+                    \${isConnected ? '✅ ONLINE & ATTIVO' : '⏳ STATO: ' + statusMessage}
                 </div>
     \`;
 
-    if (errorDetail) {
-        html += \`
-            <div style="background: #fff5f5; border: 1px solid #fc8181; padding: 15px; border-radius: 8px; color: #c53030; text-align: left; margin-bottom: 20px;">
-                <strong>Errore Avvio:</strong><br/>
-                \${errorDetail}
-            </div>
-        \`;
-    } else if (qrCodeDataUrl && !isConnected) {
+    if (qrCodeDataUrl && !isConnected) {
         html += \`
             <div style="background: #fff; padding: 20px; border: 2px dashed #008069; border-radius: 10px;">
                 <h3>SCANSIONA ORA:</h3>
@@ -187,7 +190,7 @@ const server = http.createServer((req, res) => {
                 <div class="log-box">
                     \${logs.map(l => \`<div>\${l}</div>\`).join('')}
                 </div>
-                <p style="font-size: 11px; color: #888; margin-top: 20px;">v3.1 Debug • Refresh Auto 5s</p>
+                <p style="font-size: 11px; color: #888; margin-top: 20px;">v4.0 Baileys Engine • No Browser Required</p>
             </div>
         </body>
     </html>
@@ -195,108 +198,90 @@ const server = http.createServer((req, res) => {
     res.end(html);
 });
 
-// Avvia ascolto immediato per soddisfare cPanel
 server.listen(PORT, () => {
-    addLog(\`WEB SERVER AVVIATO SU PORTA \${PORT}. OK.\`);
-    addLog(\`Attesa 5 secondi per avvio WhatsApp...\`);
-    
-    // 2. AVVIO RITARDATO DI WHATSAPP (Per evitare timeout avvio)
-    setTimeout(() => {
-        initWhatsApp();
-    }, 5000); 
+    addLog(\`WEB SERVER V4.0 STARTED ON PORT \${PORT}\`);
+    startBaileys();
 });
 
-// --- LOGICA WHATSAPP ---
-const API_KEY = "${localConfig.apiKey || ''}";
-const SYSTEM_INSTRUCTION = \`${localConfig.systemInstruction.replace(/`/g, '\\`')}\`;
-const TEMPERATURE = ${localConfig.temperature};
 
-let ai;
-try {
-    ai = new GoogleGenAI({ apiKey: API_KEY });
-} catch (e) { addLog("Errore AI config: " + e.message); }
-
-async function initWhatsApp() {
-    addLog("Inizializzazione Libreria WhatsApp...");
+// 2. LOGICA BAILEYS (Lightweight WhatsApp)
+async function startBaileys() {
+    const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
     
-    const client = new Client({
-        authStrategy: new LocalAuth(),
-        puppeteer: {
-            headless: true,
-            args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-accelerated-2d-canvas',
-                '--no-first-run',
-                '--no-zygote',
-                '--disable-gpu'
-            ]
-        }
+    const sock = makeWASocket({
+        auth: state,
+        printQRInTerminal: false, // Gestiamo noi il QR
+        logger: pino({ level: 'silent' }), // Zittiamo i log interni
+        browser: ["BotManager", "Chrome", "1.0"]
     });
 
-    client.on('qr', (qr) => {
-        statusMessage = 'QR Code Generato. SCANSIONA ORA.';
-        addLog('>>> QR CODE RICEVUTO! Generazione immagine...');
-        qrcode.toDataURL(qr, (err, url) => {
-            if(!err) {
-                qrCodeDataUrl = url;
-                addLog('Immagine QR pronta per display.');
-            } else {
-                addLog('Errore generazione immagine QR: ' + err.message);
-            }
-        });
-    });
-
-    client.on('ready', () => {
-        addLog('>>> DISPOSITIVO CONNESSO! <<<');
-        isConnected = true;
-        statusMessage = 'Bot attivo e in ascolto.';
-        qrCodeDataUrl = '';
-    });
-
-    client.on('auth_failure', (msg) => {
-        addLog('ERRORE AUTENTICAZIONE: ' + msg);
-        errorDetail = 'Auth Failure: ' + msg;
-    });
-
-    client.on('disconnected', (reason) => {
-        addLog('DISCONNESSO: ' + reason);
-        isConnected = false;
-        statusMessage = 'Disconnesso: ' + reason;
-    });
-
-    client.on('message', async msg => {
-        if(msg.fromMe) return;
-        try {
-            const chat = await msg.getChat();
-            await chat.sendStateTyping();
-            
-            if (!ai) return;
-
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: msg.body,
-                config: {
-                    systemInstruction: SYSTEM_INSTRUCTION,
-                    temperature: TEMPERATURE
-                }
+    sock.ev.on('connection.update', (update) => {
+        const { connection, lastDisconnect, qr } = update;
+        
+        if(qr) {
+            statusMessage = "QR Code Generato. Scansiona!";
+            addLog("QR Code ricevuto via WebSocket");
+            qrcode.toDataURL(qr, (err, url) => {
+                if(!err) qrCodeDataUrl = url;
             });
-            await msg.reply(response.text);
-            addLog("Risposto a " + msg.from);
-        } catch (error) {
-            addLog("Err Risposta: " + error.message);
+        }
+
+        if(connection === 'close') {
+            isConnected = false;
+            qrCodeDataUrl = '';
+            const shouldReconnect = (lastDisconnect.error)?.output?.statusCode !== DisconnectReason.loggedOut;
+            addLog('Connessione chiusa. Riconnessione: ' + shouldReconnect);
+            statusMessage = "Disconnesso. Riconnessione in corso...";
+            
+            if(shouldReconnect) {
+                setTimeout(startBaileys, 2000);
+            } else {
+                addLog("Sessione scaduta (Logout). Cancella cartella 'auth_info_baileys' per riavviare.");
+                statusMessage = "Sessione Scaduta. Riavviare pulito.";
+            }
+        } else if(connection === 'open') {
+            isConnected = true;
+            qrCodeDataUrl = '';
+            statusMessage = "Connesso ai server WhatsApp!";
+            addLog(">>> DISPOSITIVO CONNESSO CON SUCCESSO <<<");
+            retryCount = 0;
         }
     });
 
-    try {
-        addLog("Avvio Browser (Puppeteer)...");
-        await client.initialize();
-        addLog("Client.initialize() completato senza errori sincroni.");
-    } catch (e) {
-        addLog("CRASH AVVIO CLIENT: " + e.message);
-        errorDetail = e.message + " (Controlla se mancano librerie Chrome sul server)";
-    }
+    sock.ev.on('creds.update', saveCreds);
+
+    sock.ev.on('messages.upsert', async ({ messages, type }) => {
+        if(type !== 'notify') return;
+        
+        for(const msg of messages) {
+            if(!msg.message || msg.key.fromMe) continue; // Ignora i nostri messaggi
+
+            const remoteJid = msg.key.remoteJid;
+            const textBody = msg.message.conversation || msg.message.extendedTextMessage?.text;
+
+            if(!textBody) continue;
+
+            addLog(\`Messaggio da \${remoteJid}: \${textBody.substring(0, 20)}...\`);
+
+            try {
+                if(ai) {
+                    await sock.sendPresenceUpdate('composing', remoteJid);
+                    
+                    const response = await ai.models.generateContent({
+                        model: 'gemini-2.5-flash',
+                        contents: textBody,
+                        config: { systemInstruction: SYSTEM_INSTRUCTION }
+                    });
+                    
+                    const replyText = response.text;
+                    await sock.sendMessage(remoteJid, { text: replyText }, { quoted: msg });
+                    addLog("Risposto con AI.");
+                }
+            } catch (e) {
+                addLog("Errore risposta AI: " + e.message);
+            }
+        }
+    });
 }
 `;
     downloadFile('server.js', content);
@@ -359,10 +344,10 @@ async function initWhatsApp() {
           <div className="flex items-center space-x-3">
              <button
                 onClick={() => setShowDeployGuide(true)}
-                className="flex items-center px-3 py-2 bg-slate-900 text-white rounded-lg text-xs font-bold hover:bg-slate-800 transition-colors shadow-sm"
+                className="flex items-center px-3 py-2 bg-indigo-900 text-white rounded-lg text-xs font-bold hover:bg-indigo-800 transition-colors shadow-sm"
              >
-                <HelpCircle className="w-3.5 h-3.5 mr-2" />
-                Guida v3.1 (Debug)
+                <Zap className="w-3.5 h-3.5 mr-2 text-yellow-400" />
+                Guida v4.0 (Light)
              </button>
              
              <div className={`flex items-center px-3 py-1.5 rounded-full border text-xs font-bold uppercase tracking-wide ml-2 ${
@@ -412,14 +397,14 @@ async function initWhatsApp() {
                 {/* Export Real Bot Section */}
                 <div className="bg-slate-900 rounded-xl shadow-lg border border-slate-800 p-6 text-white relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-8 opacity-10">
-                        <Server className="w-32 h-32" />
+                        <Zap className="w-32 h-32" />
                     </div>
                     <h3 className="text-lg font-bold mb-2 flex items-center">
                         <Download className="w-5 h-5 mr-2 text-[#00a884]" />
-                        1. Esporta File Server
+                        1. Esporta File Server (v4.0 Light)
                     </h3>
                     <p className="text-slate-400 text-sm mb-6 max-w-xl">
-                        Versione 3.1 (Debug Mode). Include fix per la visualizzazione e log degli errori dettagliati.
+                        Versione 4.0 riscritta con motore <strong>Baileys</strong>. Non richiede Chrome. Ideale per FastComet e Hosting Condiviso.
                     </p>
 
                     <div className="flex flex-col sm:flex-row gap-4 relative z-10">
@@ -431,7 +416,7 @@ async function initWhatsApp() {
                             <FileCode className="w-5 h-5 mr-3 text-yellow-400" />
                             <div className="text-left">
                                 <div className="font-bold text-sm">Scarica server.js</div>
-                                <div className="text-xs text-slate-500">v3.1 Debug</div>
+                                <div className="text-xs text-slate-500">v4.0 (No Chrome)</div>
                             </div>
                         </button>
                         
@@ -442,7 +427,7 @@ async function initWhatsApp() {
                             <FileJson className="w-5 h-5 mr-3 text-red-400" />
                             <div className="text-left">
                                 <div className="font-bold text-sm">Scarica package.json</div>
-                                <div className="text-xs text-slate-500">Dipendenze</div>
+                                <div className="text-xs text-slate-500">Nuove Dipendenze</div>
                             </div>
                         </button>
                     </div>
@@ -455,7 +440,7 @@ async function initWhatsApp() {
                         2. Apri Pannello QR Code
                     </h3>
                     <p className="text-sm text-slate-500 mb-4">
-                        Dopo aver caricato i file su FastComet, usa questo link. Se c'è un errore, apparirà in rosso.
+                        Dopo aver caricato i nuovi file v4.0 e fatto "Run NPM Install".
                     </p>
                     
                     <div className="flex gap-2">
@@ -553,18 +538,18 @@ async function initWhatsApp() {
             </div>
         </div>
 
-        {/* Modal Guida FastComet V3.1 */}
+        {/* Modal Guida FastComet V4.0 */}
         {showDeployGuide && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-0 overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]">
-              <div className="bg-[#00a884] p-6 text-white flex justify-between items-center shrink-0">
+              <div className="bg-indigo-900 p-6 text-white flex justify-between items-center shrink-0">
                   <div className="flex items-center space-x-3">
                      <div className="bg-white/20 p-2 rounded-lg">
-                        <Server className="w-6 h-6 text-white" />
+                        <Zap className="w-6 h-6 text-yellow-400" />
                      </div>
                      <div>
-                        <h2 className="text-xl font-bold">Guida V3.1 Debug Mode</h2>
-                        <p className="text-white/80 text-sm">Visualizzazione Errori e Fix Caratteri</p>
+                        <h2 className="text-xl font-bold">Guida v4.0 Light Edition</h2>
+                        <p className="text-indigo-200 text-sm">Motore Baileys (No-Browser)</p>
                      </div>
                   </div>
                   <button onClick={() => setShowDeployGuide(false)} className="bg-white/10 hover:bg-white/20 p-2 rounded-full transition-colors">
@@ -573,24 +558,25 @@ async function initWhatsApp() {
               </div>
               
               <div className="p-8 overflow-y-auto">
-                 <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-6 text-sm text-blue-800 flex items-start">
+                 <div className="bg-yellow-50 border border-yellow-100 rounded-lg p-4 mb-6 text-sm text-yellow-800 flex items-start">
                     <ShieldAlert className="w-5 h-5 mr-3 shrink-0 mt-0.5" />
                     <p>
-                        <strong>Novità v3.1:</strong> Questa versione include il <code>charset=utf-8</code> per fixare i caratteri strani e un sistema di protezione (try-catch) che impedisce al server di spegnersi se WhatsApp non parte, mostrandoti invece l'errore.
+                        <strong>Perché questo cambio?</strong> I server FastComet (Shared) non permettono di installare Chrome (errore libatk). Abbiamo cambiato tecnologia passando a <strong>Baileys</strong>, che non usa il browser e funziona ovunque.
                     </p>
                  </div>
 
-                 <h3 className="font-bold text-slate-900 mb-4">Procedura Aggiornamento:</h3>
+                 <h3 className="font-bold text-slate-900 mb-4">Procedura Aggiornamento Obbligatoria:</h3>
                  <ol className="list-decimal list-inside space-y-4 text-slate-600 ml-2">
-                    <li>Scarica il nuovo <strong>server.js (v3.1)</strong> dal tasto giallo qui a fianco.</li>
-                    <li>Vai su FastComet File Manager &gt; cartella <code>chatbot-whatsapp</code>.</li>
-                    <li>Sostituisci il vecchio file.</li>
-                    <li>Vai su <strong>Setup Node.js App</strong> e clicca il tasto verde <strong>RESTART</strong>.</li>
-                    <li>Apri il tuo link (es: <code>aleasistemi.eu/chatbot...</code>).</li>
+                    <li>Scarica il nuovo <strong>package.json</strong> (le dipendenze sono cambiate).</li>
+                    <li>Scarica il nuovo <strong>server.js</strong> (v4.0).</li>
+                    <li>Su FastComet, <strong>CANCELLA</strong> la cartella <code>node_modules</code> esistente (per fare pulizia).</li>
+                    <li>Carica i due nuovi file sovrascrivendo i vecchi.</li>
+                    <li>Vai su <strong>Setup Node.js App</strong> e clicca <strong>Run NPM Install</strong>.</li>
+                    <li>Infine clicca <strong>RESTART</strong>.</li>
                  </ol>
                  
                  <p className="mt-6 text-xs text-slate-500 italic border-t pt-2">
-                     Se vedi un errore in rosso riguardante "libatk" o "libnss", significa che FastComet non supporta Chrome standard. Contatta il loro supporto chiedendo se possono abilitare le librerie per Puppeteer.
+                     Se vedi ancora errori vecchi, assicurati di aver cancellato node_modules e reinstallato le dipendenze.
                  </p>
               </div>
               
