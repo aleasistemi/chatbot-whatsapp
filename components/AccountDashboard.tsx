@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BotAccount, MAX_ACCOUNTS } from '../types';
-import { Plus, QrCode, Smartphone, Edit3, Server, Globe, Activity, Power, Wifi, CloudCheck, ShieldCheck, X, Terminal, AlertTriangle, MonitorPlay } from 'lucide-react';
+import { Plus, QrCode, Smartphone, Edit3, Server, Globe, Activity, Power, Wifi, CloudCheck, ShieldCheck, X, Terminal, AlertTriangle, MonitorPlay, ExternalLink } from 'lucide-react';
 
 interface AccountDashboardProps {
   accounts: BotAccount[];
@@ -21,6 +21,7 @@ export const AccountDashboard: React.FC<AccountDashboardProps> = ({
   // States for modals
   const [connectionStep, setConnectionStep] = useState<'none' | 'choice' | 'simulator' | 'production'>('none');
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  const [serverUrl, setServerUrl] = useState('');
   
   const [newName, setNewName] = useState('');
   const [newPhone, setNewPhone] = useState('');
@@ -47,6 +48,9 @@ export const AccountDashboard: React.FC<AccountDashboardProps> = ({
 
   const initConnectFlow = (id: string) => {
       setSelectedAccountId(id);
+      // Retrieve saved URL if exists
+      const savedUrl = localStorage.getItem(`server_url_${id}`);
+      if(savedUrl) setServerUrl(savedUrl);
       setConnectionStep('choice');
   };
 
@@ -347,7 +351,7 @@ export const AccountDashboard: React.FC<AccountDashboardProps> = ({
                             Funziona 24/7 anche a PC spento.
                         </p>
                         <div className="flex items-center text-emerald-700 font-bold text-sm">
-                            Vedi Istruzioni <Globe className="w-4 h-4 ml-2" />
+                            Apri QR Server <Globe className="w-4 h-4 ml-2" />
                         </div>
                     </button>
 
@@ -374,7 +378,7 @@ export const AccountDashboard: React.FC<AccountDashboardProps> = ({
         </div>
       )}
 
-      {/* PRODUCTION INSTRUCTIONS MODAL */}
+      {/* PRODUCTION INSTRUCTIONS MODAL - FIXED TEXT */}
       {connectionStep === 'production' && (
           <div className="fixed inset-0 bg-slate-900/90 flex items-center justify-center z-50 p-4 backdrop-blur-md">
              <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full p-0 overflow-hidden animate-in slide-in-from-bottom-10 duration-300">
@@ -387,44 +391,53 @@ export const AccountDashboard: React.FC<AccountDashboardProps> = ({
                 </div>
                 
                 <div className="p-8">
-                    <div className="bg-amber-50 border-l-4 border-amber-500 p-4 mb-8">
+                    <div className="bg-emerald-50 border-l-4 border-emerald-500 p-4 mb-8">
                         <div className="flex">
-                            <AlertTriangle className="h-6 w-6 text-amber-500 mr-3" />
+                            <Globe className="h-6 w-6 text-emerald-600 mr-3" />
                             <div>
-                                <h3 className="text-sm font-bold text-amber-800">Il QR Code non appare qui!</h3>
-                                <p className="text-sm text-amber-700 mt-1">
-                                    Poiché il server FastComet non ha uno schermo, non può mostrare il QR code in questa pagina web.
-                                    Devi cercarlo nei Log del server.
+                                <h3 className="text-sm font-bold text-emerald-800">Il QR Code è sulla tua pagina web!</h3>
+                                <p className="text-sm text-emerald-700 mt-1">
+                                    Con l'ultimo aggiornamento (v3.0), non devi più guardare i log.
+                                    Il QR Code apparirà direttamente aprendo il tuo link FastComet.
                                 </p>
                             </div>
                         </div>
                     </div>
 
-                    <h3 className="font-bold text-slate-900 mb-4">Procedura di Collegamento:</h3>
+                    <h3 className="font-bold text-slate-900 mb-4">Istruzioni:</h3>
                     <ol className="list-decimal list-inside space-y-4 text-slate-600 ml-2">
-                        <li>Assicurati di aver caricato i file <code>server.js</code> e <code>package.json</code> su FastComet.</li>
-                        <li>Avvia la <strong>Node.js App</strong> dal cPanel.</li>
-                        <li>Nel cPanel, clicca sul pulsante <strong>"Log"</strong> (o guarda il file <code>stderr.log</code> nel File Manager).</li>
-                        <li>Troverai il QR Code disegnato con caratteri di testo nel Log.</li>
-                        <li>Apri WhatsApp sul telefono &rarr; Dispositivi Collegati &rarr; Scannerizza quel codice dal Log.</li>
+                         <li>
+                            Se non l'hai fatto, vai in <strong>Configurazione</strong>, scarica <code>server.js</code> (v3.0) e caricalo su FastComet.
+                        </li>
+                        <li>
+                            Apri il tuo link qui sotto. Se vedi "503", aspetta 1 minuto e ricarica (il server si sta riavviando).
+                        </li>
+                        <li>
+                            Apri WhatsApp sul telefono &rarr; Dispositivi Collegati &rarr; Scannerizza il QR dal sito.
+                        </li>
                     </ol>
 
-                    <div className="mt-8 bg-slate-100 p-4 rounded-lg border border-slate-200 font-mono text-xs text-slate-500">
-                        Esempio di output nel Log:<br/>
-                        <code>SCANNERIZZA QUESTO QR CODE PER COLLEGARE IL BOT:</code><br/>
-                        <code>▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄</code><br/>
-                        <code>█ ▄▄▄▄▄ █ ▄ █ ▄▄▄▄▄ █</code><br/>
-                        <code>█ █   █ █ █ █ █   █ █</code><br/>
-                        <code>...</code>
+                    <div className="mt-8 flex gap-2">
+                        <input 
+                            type="text" 
+                            placeholder="https://aleasistemi.eu/chatbot-whatsapp/"
+                            value={serverUrl}
+                            onChange={(e) => {
+                                setServerUrl(e.target.value);
+                                if(selectedAccountId) localStorage.setItem(`server_url_${selectedAccountId}`, e.target.value);
+                            }}
+                            className="flex-1 px-4 py-3 border border-slate-300 rounded-lg text-sm bg-slate-50"
+                        />
+                        <a 
+                            href={serverUrl || '#'}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => !serverUrl && e.preventDefault()}
+                            className={`px-6 py-3 rounded-lg font-bold text-white flex items-center whitespace-nowrap ${serverUrl ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-300 cursor-not-allowed'}`}
+                        >
+                            APRI PAGINA QR <ExternalLink className="w-4 h-4 ml-2" />
+                        </a>
                     </div>
-                </div>
-                <div className="p-6 bg-slate-50 text-right">
-                    <button 
-                        onClick={() => setConnectionStep('none')}
-                        className="px-6 py-2 bg-slate-900 text-white rounded-lg font-bold hover:bg-slate-800"
-                    >
-                        Ho capito, vado sul cPanel
-                    </button>
                 </div>
              </div>
           </div>

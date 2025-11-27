@@ -88,8 +88,8 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
   const generatePackageJson = () => {
     const pkg = {
       "name": `whatsapp-bot-${account.name.toLowerCase().replace(/\s+/g, '-')}`,
-      "version": "2.1.0",
-      "description": "Bot WhatsApp generato da BotManager Pro v2.1",
+      "version": "3.0.0",
+      "description": "Bot WhatsApp generato da BotManager Pro v3.0 Stability",
       "main": "server.js",
       "scripts": {
         "start": "node server.js"
@@ -109,7 +109,7 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
 
   const generateServerJs = () => {
     const content = `/**
- * BOT WA GENERATO AUTOMATICAMENTE - VERSIONE FASTCOMET V2.1 (ANTI-503)
+ * BOT WA GENERATO AUTOMATICAMENTE - VERSIONE V3.0 (STABILITY + DELAYED START)
  * Configurazione per: ${account.name}
  * Data generazione: ${new Date().toLocaleString()}
  */
@@ -119,13 +119,12 @@ const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode');
 const { GoogleGenAI } = require("@google/genai");
 
-// --- 1. AVVIO IMMEDIATO WEBSERVER (CRUCIALE PER FASTCOMET/CPANEL) ---
-// Deve essere la prima cosa che il codice fa per evitare timeout 503
+// --- FIX 503 CPANEL: AVVIARE SERVER WEB PRIMA DI QUALSIASI ALTRA COSA ---
 const PORT = process.env.PORT || 3000;
 
-// Variabili di stato globali
+// Stato Globale
 let qrCodeDataUrl = '';
-let statusMessage = 'Avvio sistema... In attesa di WhatsApp.';
+let statusMessage = 'Avvio Server Web... Inizializzazione WhatsApp fra 5 secondi...';
 let isConnected = false;
 let logs = [];
 
@@ -136,6 +135,7 @@ function addLog(msg) {
     console.log(msg);
 }
 
+// 1. Creazione Server Web Istantanea
 const server = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/html' });
     
@@ -144,35 +144,31 @@ const server = http.createServer((req, res) => {
     <html>
         <head>
             <title>Bot Panel: ${account.name}</title>
-            <meta http-equiv="refresh" content="3">
+            <meta http-equiv="refresh" content="5">
             <meta name="viewport" content="width=device-width, initial-scale=1">
             <style>
-                body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #f0f2f5; color: #111b21; padding: 20px; display: flex; flex-direction: column; items-center: center; }
-                .card { background: white; max-width: 600px; margin: 0 auto; padding: 30px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; }
-                h1 { margin-top: 0; color: #111b21; }
-                .status-badge { display: inline-block; padding: 6px 12px; border-radius: 20px; font-weight: bold; font-size: 14px; margin-bottom: 20px; }
+                body { font-family: -apple-system, sans-serif; background: #f0f2f5; color: #111b21; padding: 20px; text-align: center; }
+                .card { background: white; max-width: 600px; margin: 0 auto; padding: 30px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+                .status-badge { display: inline-block; padding: 8px 16px; border-radius: 20px; font-weight: bold; margin-bottom: 20px; }
                 .online { background: #d9fdd3; color: #008069; }
-                .offline { background: #ffeecd; color: #a67c00; }
-                .log-box { text-align: left; background: #1f2937; color: #00ff00; font-family: monospace; padding: 15px; border-radius: 8px; font-size: 12px; margin-top: 20px; max-height: 200px; overflow-y: auto; }
-                img { border: 8px solid white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-radius: 8px; margin: 20px 0; }
-                .btn { display: inline-block; background: #008069; color: white; padding: 10px 20px; text-decoration: none; border-radius: 8px; margin-top: 10px; }
+                .wait { background: #e9edef; color: #111b21; }
+                .log-box { text-align: left; background: #1f2937; color: #00ff00; padding: 15px; border-radius: 8px; font-size: 12px; margin-top: 20px; max-height: 200px; overflow-y: auto; font-family: monospace; }
             </style>
         </head>
         <body>
             <div class="card">
                 <h1>🤖 ${account.name}</h1>
-                <div class="status-badge \${isConnected ? 'online' : 'offline'}">
-                    \${isConnected ? '✅ ONLINE E OPERATIVO' : '⏳ IN ATTESA DI CONNESSIONE'}
+                <div class="status-badge \${isConnected ? 'online' : 'wait'}">
+                    \${isConnected ? '✅ ONLINE' : '⏳ STATO: ' + statusMessage}
                 </div>
-                
-                <p><strong>Stato:</strong> \${statusMessage}</p>
     \`;
 
     if (qrCodeDataUrl && !isConnected) {
         html += \`
-            <div style="background: #fff; padding: 20px;">
+            <div style="background: #fff; padding: 20px; border: 2px dashed #008069; border-radius: 10px;">
+                <h3>SCANSIONA ORA:</h3>
                 <img src="\${qrCodeDataUrl}" alt="QR Code" width="280" />
-                <p>Apri WhatsApp sul telefono > Impostazioni > Dispositivi collegati > <strong>Collega dispositivo</strong></p>
+                <p>Apri WhatsApp > Impostazioni > Dispositivi collegati</p>
             </div>
         \`;
     }
@@ -181,118 +177,98 @@ const server = http.createServer((req, res) => {
                 <div class="log-box">
                     \${logs.map(l => \`<div>\${l}</div>\`).join('')}
                 </div>
-                <p style="color:#666; font-size: 12px; margin-top: 20px;">FastComet Node.js Server v2.1 • Refresh automatico 3s</p>
+                <p style="font-size: 11px; color: #888; margin-top: 20px;">V3.0 Stability • Refresh Auto 5s</p>
             </div>
         </body>
     </html>
     \`;
-    
     res.end(html);
 });
 
+// Avvia ascolto immediato per soddisfare cPanel
 server.listen(PORT, () => {
-    addLog(\`Server Web avviato sulla porta \${PORT}. Pagina accessibile.\`);
+    addLog(\`WEB SERVER AVVIATO SU PORTA \${PORT}. OK.\`);
+    
+    // 2. AVVIO RITARDATO DI WHATSAPP (Per evitare timeout avvio)
+    setTimeout(() => {
+        initWhatsApp();
+    }, 5000); 
 });
 
-// --- CONFIGURAZIONE AI E WHATSAPP ---
+// --- LOGICA WHATSAPP ---
 const API_KEY = "${localConfig.apiKey || ''}";
 const SYSTEM_INSTRUCTION = \`${localConfig.systemInstruction.replace(/`/g, '\\`')}\`;
 const TEMPERATURE = ${localConfig.temperature};
 
-addLog("Avvio modulo Google Gemini...");
 let ai;
 try {
     ai = new GoogleGenAI({ apiKey: API_KEY });
-} catch (e) {
-    addLog("Errore Configurazione AI: " + e.message);
-}
+} catch (e) { addLog("Errore AI config"); }
 
-addLog("Avvio modulo WhatsApp...");
-const client = new Client({
-    authStrategy: new LocalAuth(),
-    puppeteer: {
-        headless: true,
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-accelerated-2d-canvas',
-            '--no-first-run',
-            '--no-zygote',
-            '--single-process',
-            '--disable-gpu'
-        ]
-    }
-});
-
-client.on('qr', (qr) => {
-    addLog('NUOVO QR CODE GENERATO. Scansionalo ora.');
-    statusMessage = 'Scansiona il QR Code qui sotto';
-    qrcode.toDataURL(qr, (err, url) => {
-        if(!err) qrCodeDataUrl = url;
+function initWhatsApp() {
+    addLog("Avvio Processo WhatsApp...");
+    
+    const client = new Client({
+        authStrategy: new LocalAuth(),
+        puppeteer: {
+            headless: true,
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-accelerated-2d-canvas',
+                '--no-first-run',
+                '--no-zygote',
+                '--single-process',
+                '--disable-gpu'
+            ]
+        }
     });
-});
 
-client.on('ready', () => {
-    addLog('>>> DISPOSITIVO COLLEGATO CON SUCCESSO <<<');
-    isConnected = true;
-    statusMessage = 'Il bot sta rispondendo ai messaggi.';
-    qrCodeDataUrl = '';
-});
+    client.on('qr', (qr) => {
+        statusMessage = 'QR Code Generato. SCANSIONA ORA.';
+        addLog('QR Code pronto per la scansione web.');
+        qrcode.toDataURL(qr, (err, url) => {
+            if(!err) qrCodeDataUrl = url;
+        });
+    });
 
-client.on('authenticated', () => {
-    addLog('Sessione autenticata. Caricamento...');
-    statusMessage = 'Autenticato. Inizializzazione...';
-});
+    client.on('ready', () => {
+        addLog('>>> DISPOSITIVO CONNESSO! <<<');
+        isConnected = true;
+        statusMessage = 'Bot attivo e in ascolto.';
+        qrCodeDataUrl = '';
+    });
 
-client.on('auth_failure', msg => {
-    addLog('ERRORE AUTENTICAZIONE: ' + msg);
-    statusMessage = 'Errore Autenticazione.';
-});
+    client.on('message', async msg => {
+        if(msg.fromMe) return;
+        try {
+            const chat = await msg.getChat();
+            await chat.sendStateTyping();
+            
+            if (!ai) return;
 
-client.on('disconnected', (reason) => {
-    addLog('Disconnesso: ' + reason);
-    isConnected = false;
-    statusMessage = 'Disconnesso. Riavvio...';
-    client.initialize();
-});
-
-client.on('message', async msg => {
-    if(msg.fromMe) return;
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: msg.body,
+                config: {
+                    systemInstruction: SYSTEM_INSTRUCTION,
+                    temperature: TEMPERATURE
+                }
+            });
+            await msg.reply(response.text);
+            addLog("Risposto a " + msg.from);
+        } catch (error) {
+            addLog("Err Risposta: " + error.message);
+        }
+    });
 
     try {
-        const chat = await msg.getChat();
-        
-        // Simula "sta scrivendo..."
-        await chat.sendStateTyping();
-
-        addLog("Messaggio da: " + msg.from);
-
-        if (!ai) { 
-            addLog("AI non configurata, nessuna risposta.");
-            return; 
-        }
-
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: msg.body,
-            config: {
-                systemInstruction: SYSTEM_INSTRUCTION,
-                temperature: TEMPERATURE
-            }
-        });
-        
-        const text = response.text;
-        await msg.reply(text);
-        addLog("Risposta inviata.");
-
-    } catch (error) {
-        addLog("Errore elaborazione messaggio: " + error.message);
+        client.initialize();
+    } catch (e) {
+        addLog("CRASH AVVIO CLIENT: " + e.message);
     }
-});
-
-addLog("Inizializzazione Client in corso...");
-client.initialize();
+}
 `;
     downloadFile('server.js', content);
   };
@@ -357,7 +333,7 @@ client.initialize();
                 className="flex items-center px-3 py-2 bg-slate-900 text-white rounded-lg text-xs font-bold hover:bg-slate-800 transition-colors shadow-sm"
              >
                 <HelpCircle className="w-3.5 h-3.5 mr-2" />
-                Guida FastComet v2.1
+                Guida v3.0 (Anti-503)
              </button>
              
              <div className={`flex items-center px-3 py-1.5 rounded-full border text-xs font-bold uppercase tracking-wide ml-2 ${
@@ -414,7 +390,7 @@ client.initialize();
                         1. Esporta File Server
                     </h3>
                     <p className="text-slate-400 text-sm mb-6 max-w-xl">
-                        Versione 2.1 (Anti-503 Fix). Scarica questi file e caricali su FastComet.
+                        Versione 3.0 (Anti-503 Fix). Scarica questi file e caricali su FastComet.
                     </p>
 
                     <div className="flex flex-col sm:flex-row gap-4 relative z-10">
@@ -426,7 +402,7 @@ client.initialize();
                             <FileCode className="w-5 h-5 mr-3 text-yellow-400" />
                             <div className="text-left">
                                 <div className="font-bold text-sm">Scarica server.js</div>
-                                <div className="text-xs text-slate-500">v2.1 Latest</div>
+                                <div className="text-xs text-slate-500">v3.0 Stable</div>
                             </div>
                         </button>
                         
@@ -450,7 +426,7 @@ client.initialize();
                         2. Apri Pannello QR Code
                     </h3>
                     <p className="text-sm text-slate-500 mb-4">
-                        Una volta caricati i file su FastComet, inserisci qui il tuo link (es: <code>https://aleasistemi.eu/chatbot-whatsapp/</code>) per aprire la pagina del QR code.
+                        Dopo aver caricato i file su FastComet, usa questo link per vedere il QR Code (non serve più guardare i log).
                     </p>
                     
                     <div className="flex gap-2">
@@ -548,7 +524,7 @@ client.initialize();
             </div>
         </div>
 
-        {/* Modal Guida FastComet V2.1 */}
+        {/* Modal Guida FastComet V3.0 */}
         {showDeployGuide && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-0 overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]">
@@ -558,8 +534,8 @@ client.initialize();
                         <Server className="w-6 h-6 text-white" />
                      </div>
                      <div>
-                        <h2 className="text-xl font-bold">Guida FastComet v2.1 (Fix 503)</h2>
-                        <p className="text-white/80 text-sm">Risoluzione problemi avvio</p>
+                        <h2 className="text-xl font-bold">Guida V3.0 Stability</h2>
+                        <p className="text-white/80 text-sm">Fix definitivo Error 503</p>
                      </div>
                   </div>
                   <button onClick={() => setShowDeployGuide(false)} className="bg-white/10 hover:bg-white/20 p-2 rounded-full transition-colors">
@@ -571,19 +547,18 @@ client.initialize();
                  <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-6 text-sm text-blue-800 flex items-start">
                     <ShieldAlert className="w-5 h-5 mr-3 shrink-0 mt-0.5" />
                     <p>
-                        <strong>Novità v2.1:</strong> Questa versione avvia il server web ISTANTANEAMENTE. 
-                        Il QR Code apparirà nella pagina web del tuo sito, non più nei log.
+                        <strong>Perché falliva prima?</strong> Il bot cercava di accendere tutto insieme e il server FastComet lo bloccava.
+                        Ora il server parte subito e WhatsApp dopo 5 secondi.
                     </p>
                  </div>
 
-                 <h3 className="font-bold text-slate-900 mb-4">Procedura di Riparazione:</h3>
+                 <h3 className="font-bold text-slate-900 mb-4">Procedura Aggiornamento:</h3>
                  <ol className="list-decimal list-inside space-y-4 text-slate-600 ml-2">
-                    <li>Clicca su <strong>Scarica server.js</strong> qui nella dashboard.</li>
+                    <li>Scarica il nuovo <strong>server.js (v3.0)</strong> dal tasto giallo qui a fianco.</li>
                     <li>Vai su FastComet File Manager &gt; cartella <code>chatbot-whatsapp</code>.</li>
-                    <li>Sovrascrivi il file <code>server.js</code> esistente.</li>
+                    <li>Sostituisci il vecchio file.</li>
                     <li>Vai su <strong>Setup Node.js App</strong> e clicca il tasto verde <strong>RESTART</strong>.</li>
-                    <li>Inserisci il link del tuo sito nel campo "2. Apri Pannello QR Code" qui sotto.</li>
-                    <li>Clicca <strong>APRI PAGINA QR</strong> e scansiona il codice con il telefono.</li>
+                    <li>Apri il tuo link (es: <code>aleasistemi.eu/chatbot...</code>). Vedrai una pagina di attesa e poi il QR Code.</li>
                  </ol>
               </div>
               
