@@ -88,8 +88,8 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
   const generatePackageJson = () => {
     const pkg = {
       "name": `whatsapp-bot-${account.name.toLowerCase().replace(/\s+/g, '-')}`,
-      "version": "3.0.0",
-      "description": "Bot WhatsApp generato da BotManager Pro v3.0 Stability",
+      "version": "3.1.0",
+      "description": "Bot WhatsApp generato da BotManager Pro v3.1 Debug",
       "main": "server.js",
       "scripts": {
         "start": "node server.js"
@@ -109,7 +109,7 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
 
   const generateServerJs = () => {
     const content = `/**
- * BOT WA GENERATO AUTOMATICAMENTE - VERSIONE V3.0 (STABILITY + DELAYED START)
+ * BOT WA GENERATO AUTOMATICAMENTE - VERSIONE V3.1 (DEBUG + CHARSET FIX)
  * Configurazione per: ${account.name}
  * Data generazione: ${new Date().toLocaleString()}
  */
@@ -127,17 +127,19 @@ let qrCodeDataUrl = '';
 let statusMessage = 'Avvio Server Web... Inizializzazione WhatsApp fra 5 secondi...';
 let isConnected = false;
 let logs = [];
+let errorDetail = '';
 
 function addLog(msg) {
     const time = new Date().toLocaleTimeString();
     logs.unshift(\`[\${time}] \${msg}\`);
-    if(logs.length > 20) logs.pop();
+    if(logs.length > 50) logs.pop();
     console.log(msg);
 }
 
 // 1. Creazione Server Web Istantanea
 const server = http.createServer((req, res) => {
-    res.writeHead(200, { 'Content-Type': 'text/html' });
+    // FIX CHARSET: Aggiunto charset=utf-8 per evitare caratteri strani
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     
     let html = \`
     <!DOCTYPE html>
@@ -149,21 +151,29 @@ const server = http.createServer((req, res) => {
             <style>
                 body { font-family: -apple-system, sans-serif; background: #f0f2f5; color: #111b21; padding: 20px; text-align: center; }
                 .card { background: white; max-width: 600px; margin: 0 auto; padding: 30px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-                .status-badge { display: inline-block; padding: 8px 16px; border-radius: 20px; font-weight: bold; margin-bottom: 20px; }
+                .status-badge { display: inline-block; padding: 8px 16px; border-radius: 20px; font-weight: bold; margin-bottom: 20px; font-size: 14px; }
                 .online { background: #d9fdd3; color: #008069; }
                 .wait { background: #e9edef; color: #111b21; }
-                .log-box { text-align: left; background: #1f2937; color: #00ff00; padding: 15px; border-radius: 8px; font-size: 12px; margin-top: 20px; max-height: 200px; overflow-y: auto; font-family: monospace; }
+                .error { background: #ffe6e6; color: #cc0000; }
+                .log-box { text-align: left; background: #1f2937; color: #00ff00; padding: 15px; border-radius: 8px; font-size: 11px; margin-top: 20px; max-height: 300px; overflow-y: auto; font-family: monospace; white-space: pre-wrap; }
             </style>
         </head>
         <body>
             <div class="card">
                 <h1>🤖 ${account.name}</h1>
-                <div class="status-badge \${isConnected ? 'online' : 'wait'}">
-                    \${isConnected ? '✅ ONLINE' : '⏳ STATO: ' + statusMessage}
+                <div class="status-badge \${errorDetail ? 'error' : (isConnected ? 'online' : 'wait')}">
+                    \${errorDetail ? '⚠️ ERRORE CRITICO' : (isConnected ? '✅ ONLINE' : '⏳ STATO: ' + statusMessage)}
                 </div>
     \`;
 
-    if (qrCodeDataUrl && !isConnected) {
+    if (errorDetail) {
+        html += \`
+            <div style="background: #fff5f5; border: 1px solid #fc8181; padding: 15px; border-radius: 8px; color: #c53030; text-align: left; margin-bottom: 20px;">
+                <strong>Errore Avvio:</strong><br/>
+                \${errorDetail}
+            </div>
+        \`;
+    } else if (qrCodeDataUrl && !isConnected) {
         html += \`
             <div style="background: #fff; padding: 20px; border: 2px dashed #008069; border-radius: 10px;">
                 <h3>SCANSIONA ORA:</h3>
@@ -177,7 +187,7 @@ const server = http.createServer((req, res) => {
                 <div class="log-box">
                     \${logs.map(l => \`<div>\${l}</div>\`).join('')}
                 </div>
-                <p style="font-size: 11px; color: #888; margin-top: 20px;">V3.0 Stability • Refresh Auto 5s</p>
+                <p style="font-size: 11px; color: #888; margin-top: 20px;">v3.1 Debug • Refresh Auto 5s</p>
             </div>
         </body>
     </html>
@@ -188,6 +198,7 @@ const server = http.createServer((req, res) => {
 // Avvia ascolto immediato per soddisfare cPanel
 server.listen(PORT, () => {
     addLog(\`WEB SERVER AVVIATO SU PORTA \${PORT}. OK.\`);
+    addLog(\`Attesa 5 secondi per avvio WhatsApp...\`);
     
     // 2. AVVIO RITARDATO DI WHATSAPP (Per evitare timeout avvio)
     setTimeout(() => {
@@ -203,10 +214,10 @@ const TEMPERATURE = ${localConfig.temperature};
 let ai;
 try {
     ai = new GoogleGenAI({ apiKey: API_KEY });
-} catch (e) { addLog("Errore AI config"); }
+} catch (e) { addLog("Errore AI config: " + e.message); }
 
-function initWhatsApp() {
-    addLog("Avvio Processo WhatsApp...");
+async function initWhatsApp() {
+    addLog("Inizializzazione Libreria WhatsApp...");
     
     const client = new Client({
         authStrategy: new LocalAuth(),
@@ -219,7 +230,6 @@ function initWhatsApp() {
                 '--disable-accelerated-2d-canvas',
                 '--no-first-run',
                 '--no-zygote',
-                '--single-process',
                 '--disable-gpu'
             ]
         }
@@ -227,9 +237,14 @@ function initWhatsApp() {
 
     client.on('qr', (qr) => {
         statusMessage = 'QR Code Generato. SCANSIONA ORA.';
-        addLog('QR Code pronto per la scansione web.');
+        addLog('>>> QR CODE RICEVUTO! Generazione immagine...');
         qrcode.toDataURL(qr, (err, url) => {
-            if(!err) qrCodeDataUrl = url;
+            if(!err) {
+                qrCodeDataUrl = url;
+                addLog('Immagine QR pronta per display.');
+            } else {
+                addLog('Errore generazione immagine QR: ' + err.message);
+            }
         });
     });
 
@@ -238,6 +253,17 @@ function initWhatsApp() {
         isConnected = true;
         statusMessage = 'Bot attivo e in ascolto.';
         qrCodeDataUrl = '';
+    });
+
+    client.on('auth_failure', (msg) => {
+        addLog('ERRORE AUTENTICAZIONE: ' + msg);
+        errorDetail = 'Auth Failure: ' + msg;
+    });
+
+    client.on('disconnected', (reason) => {
+        addLog('DISCONNESSO: ' + reason);
+        isConnected = false;
+        statusMessage = 'Disconnesso: ' + reason;
     });
 
     client.on('message', async msg => {
@@ -264,9 +290,12 @@ function initWhatsApp() {
     });
 
     try {
-        client.initialize();
+        addLog("Avvio Browser (Puppeteer)...");
+        await client.initialize();
+        addLog("Client.initialize() completato senza errori sincroni.");
     } catch (e) {
         addLog("CRASH AVVIO CLIENT: " + e.message);
+        errorDetail = e.message + " (Controlla se mancano librerie Chrome sul server)";
     }
 }
 `;
@@ -333,7 +362,7 @@ function initWhatsApp() {
                 className="flex items-center px-3 py-2 bg-slate-900 text-white rounded-lg text-xs font-bold hover:bg-slate-800 transition-colors shadow-sm"
              >
                 <HelpCircle className="w-3.5 h-3.5 mr-2" />
-                Guida v3.0 (Anti-503)
+                Guida v3.1 (Debug)
              </button>
              
              <div className={`flex items-center px-3 py-1.5 rounded-full border text-xs font-bold uppercase tracking-wide ml-2 ${
@@ -390,7 +419,7 @@ function initWhatsApp() {
                         1. Esporta File Server
                     </h3>
                     <p className="text-slate-400 text-sm mb-6 max-w-xl">
-                        Versione 3.0 (Anti-503 Fix). Scarica questi file e caricali su FastComet.
+                        Versione 3.1 (Debug Mode). Include fix per la visualizzazione e log degli errori dettagliati.
                     </p>
 
                     <div className="flex flex-col sm:flex-row gap-4 relative z-10">
@@ -402,7 +431,7 @@ function initWhatsApp() {
                             <FileCode className="w-5 h-5 mr-3 text-yellow-400" />
                             <div className="text-left">
                                 <div className="font-bold text-sm">Scarica server.js</div>
-                                <div className="text-xs text-slate-500">v3.0 Stable</div>
+                                <div className="text-xs text-slate-500">v3.1 Debug</div>
                             </div>
                         </button>
                         
@@ -426,7 +455,7 @@ function initWhatsApp() {
                         2. Apri Pannello QR Code
                     </h3>
                     <p className="text-sm text-slate-500 mb-4">
-                        Dopo aver caricato i file su FastComet, usa questo link per vedere il QR Code (non serve più guardare i log).
+                        Dopo aver caricato i file su FastComet, usa questo link. Se c'è un errore, apparirà in rosso.
                     </p>
                     
                     <div className="flex gap-2">
@@ -524,7 +553,7 @@ function initWhatsApp() {
             </div>
         </div>
 
-        {/* Modal Guida FastComet V3.0 */}
+        {/* Modal Guida FastComet V3.1 */}
         {showDeployGuide && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-0 overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]">
@@ -534,8 +563,8 @@ function initWhatsApp() {
                         <Server className="w-6 h-6 text-white" />
                      </div>
                      <div>
-                        <h2 className="text-xl font-bold">Guida V3.0 Stability</h2>
-                        <p className="text-white/80 text-sm">Fix definitivo Error 503</p>
+                        <h2 className="text-xl font-bold">Guida V3.1 Debug Mode</h2>
+                        <p className="text-white/80 text-sm">Visualizzazione Errori e Fix Caratteri</p>
                      </div>
                   </div>
                   <button onClick={() => setShowDeployGuide(false)} className="bg-white/10 hover:bg-white/20 p-2 rounded-full transition-colors">
@@ -547,19 +576,22 @@ function initWhatsApp() {
                  <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-6 text-sm text-blue-800 flex items-start">
                     <ShieldAlert className="w-5 h-5 mr-3 shrink-0 mt-0.5" />
                     <p>
-                        <strong>Perché falliva prima?</strong> Il bot cercava di accendere tutto insieme e il server FastComet lo bloccava.
-                        Ora il server parte subito e WhatsApp dopo 5 secondi.
+                        <strong>Novità v3.1:</strong> Questa versione include il <code>charset=utf-8</code> per fixare i caratteri strani e un sistema di protezione (try-catch) che impedisce al server di spegnersi se WhatsApp non parte, mostrandoti invece l'errore.
                     </p>
                  </div>
 
                  <h3 className="font-bold text-slate-900 mb-4">Procedura Aggiornamento:</h3>
                  <ol className="list-decimal list-inside space-y-4 text-slate-600 ml-2">
-                    <li>Scarica il nuovo <strong>server.js (v3.0)</strong> dal tasto giallo qui a fianco.</li>
+                    <li>Scarica il nuovo <strong>server.js (v3.1)</strong> dal tasto giallo qui a fianco.</li>
                     <li>Vai su FastComet File Manager &gt; cartella <code>chatbot-whatsapp</code>.</li>
                     <li>Sostituisci il vecchio file.</li>
                     <li>Vai su <strong>Setup Node.js App</strong> e clicca il tasto verde <strong>RESTART</strong>.</li>
-                    <li>Apri il tuo link (es: <code>aleasistemi.eu/chatbot...</code>). Vedrai una pagina di attesa e poi il QR Code.</li>
+                    <li>Apri il tuo link (es: <code>aleasistemi.eu/chatbot...</code>).</li>
                  </ol>
+                 
+                 <p className="mt-6 text-xs text-slate-500 italic border-t pt-2">
+                     Se vedi un errore in rosso riguardante "libatk" o "libnss", significa che FastComet non supporta Chrome standard. Contatta il loro supporto chiedendo se possono abilitare le librerie per Puppeteer.
+                 </p>
               </div>
               
               <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end">
