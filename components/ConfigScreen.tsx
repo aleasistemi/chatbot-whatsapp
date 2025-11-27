@@ -86,7 +86,7 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
   const generatePackageJson = () => {
     const pkg = {
       "name": `whatsapp-bot-${account.name.toLowerCase().replace(/\s+/g, '-')}`,
-      "version": "1.0.0",
+      "version": "1.1.0",
       "description": "Bot WhatsApp generato da BotManager Pro",
       "main": "server.js",
       "scripts": {
@@ -94,7 +94,7 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
       },
       "dependencies": {
         "whatsapp-web.js": "^1.23.0",
-        "qrcode-terminal": "^0.12.0",
+        "qrcode": "^1.5.3", 
         "@google/genai": "^1.30.0",
         "dotenv": "^16.0.0"
       },
@@ -107,79 +107,140 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
 
   const generateServerJs = () => {
     const content = `/**
- * BOT WA GENERATO AUTOMATICAMENTE - VERSIONE PRODUZIONE
+ * BOT WA GENERATO AUTOMATICAMENTE - VERSIONE FASTCOMET V2 (FIX 503)
  * Configurazione per: ${account.name}
- * Data generazione: ${new Date().toISOString()}
  */
 
 const { Client, LocalAuth } = require('whatsapp-web.js');
-const qrcode = require('qrcode-terminal');
+const qrcode = require('qrcode');
 const { GoogleGenAI } = require("@google/genai");
-const http = require('http'); // Necessario per cPanel/FastComet per tenere l'app attiva
+const http = require('http');
 
 // --- CONFIGURAZIONE ---
 const API_KEY = "${localConfig.apiKey || 'INSERISCI_LA_TUA_CHIAVE_QUI'}";
 const SYSTEM_INSTRUCTION = \`${localConfig.systemInstruction.replace(/`/g, '\\`')}\`;
 const TEMPERATURE = ${localConfig.temperature};
 
-// --- WEBSERVER DUMMY PER CPANEL ---
-// Senza questo, FastComet potrebbe spegnere l'app perché non rileva traffico web.
+// Variabili di stato
+let qrCodeDataUrl = '';
+let statusMessage = 'Avvio del sistema in corso...';
+let isConnected = false;
+
+// --- 1. AVVIO IMMEDIATO WEBSERVER (Previene Errore 503) ---
 const server = http.createServer((req, res) => {
-    res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('Bot WhatsApp is Running! Status: Active');
+    res.writeHead(200, { 'Content-Type': 'text/html' });
+    
+    let htmlContent = \`
+    <html>
+        <head>
+            <title>Bot Status: ${account.name}</title>
+            <meta http-equiv="refresh" content="5">
+            <style>
+                body { font-family: sans-serif; text-align: center; padding: 50px; background: #f0f2f5; }
+                .card { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: inline-block; }
+                h1 { color: #333; }
+                .status { font-weight: bold; color: #666; }
+                .green { color: #00a884; }
+                .red { color: #dc2626; }
+            </style>
+        </head>
+        <body>
+            <div class="card">
+                <h1>🤖 ${account.name}</h1>
+                <p class="status">Stato: \${isConnected ? '<span class="green">ONLINE E CONNESSO</span>' : '<span class="red">DISCONNESSO</span>'}</p>
+                <p>\${statusMessage}</p>
+    \`;
+
+    if (qrCodeDataUrl && !isConnected) {
+        htmlContent += \`
+            <div style="margin: 20px 0;">
+                <img src="\${qrCodeDataUrl}" alt="QR Code" width="250" />
+                <p>Scannerizza questo QR con WhatsApp (Dispositivi Collegati)</p>
+            </div>
+        \`;
+    }
+
+    htmlContent += \`
+                <small>Pagina di controllo FastComet - Refresh automatico ogni 5s</small>
+            </div>
+        </body>
+    </html>
+    \`;
+    
+    res.end(htmlContent);
 });
 
-// Porta assegnata automaticamente da cPanel (Phusion Passenger)
+// Porta assegnata da cPanel
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log(\`Server web di supporto avviato sulla porta \${PORT}\`);
+    console.log(\`Server web avviato sulla porta \${PORT}\`);
 });
 
-// --- INIZIALIZZAZIONE AI ---
+// --- 2. INIZIALIZZAZIONE AI ---
 const ai = new GoogleGenAI({ apiKey: API_KEY });
 
-// --- INIZIALIZZAZIONE WHATSAPP ---
+// --- 3. INIZIALIZZAZIONE WHATSAPP ---
+console.log("Inizializzazione Client WhatsApp...");
+
 const client = new Client({
     authStrategy: new LocalAuth(),
     puppeteer: {
-        // Opzioni critiche per Hosting Condiviso (cPanel/FastComet)
-        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-        headless: true
+        // Parametri critici per evitare crash su cPanel/Linux
+        headless: true,
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-accelerated-2d-canvas',
+            '--no-first-run',
+            '--no-zygote',
+            '--single-process',
+            '--disable-gpu'
+        ]
     }
 });
 
-// Generazione QR Code Terminale (FONDAMENTALE SU SERVER)
 client.on('qr', (qr) => {
-    console.log('\\n=============================================================');
-    console.log('SCANNERIZZA QUESTO QR CODE PER COLLEGARE IL BOT:');
-    console.log('Vai su WhatsApp > Dispositivi Collegati > Collega Dispositivo');
-    console.log('=============================================================\\n');
-    qrcode.generate(qr, { small: true });
-    console.log('\\n=============================================================');
+    console.log('Nuovo QR Code generato');
+    statusMessage = 'In attesa di scansione QR Code...';
+    // Converti QR in immagine base64 per il browser
+    qrcode.toDataURL(qr, (err, url) => {
+        if(!err) qrCodeDataUrl = url;
+    });
 });
 
 client.on('ready', () => {
-    console.log('\\n>>> SUCCESS! Bot ${account.name} è pronto e connesso! <<<\\n');
+    console.log('>>> BOT PRONTO <<<');
+    isConnected = true;
+    statusMessage = 'Il bot è attivo e sta ascoltando i messaggi.';
+    qrCodeDataUrl = ''; // Nascondi QR
 });
 
 client.on('authenticated', () => {
-    console.log('Autenticato con successo!');
+    statusMessage = 'Autenticato! Caricamento chat...';
+});
+
+client.on('auth_failure', msg => {
+    statusMessage = 'Errore Autenticazione: ' + msg;
+});
+
+client.on('disconnected', (reason) => {
+    console.log('Bot disconnesso:', reason);
+    isConnected = false;
+    statusMessage = 'Disconnesso. Riavvio necessario o attesa nuovo QR.';
+    client.initialize(); // Tenta riconnessione
 });
 
 // Gestione Messaggi
 client.on('message', async msg => {
-    // Ignora i messaggi inviati dal bot stesso o i gruppi (opzionale)
     if(msg.fromMe) return;
 
     try {
         const chat = await msg.getChat();
-        
-        // Simula digitazione
         await chat.sendStateTyping();
 
-        console.log("Messaggio ricevuto:", msg.body);
+        console.log("Messaggio da:", msg.from);
 
-        // Chiamata a Gemini 2.5 Flash
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: msg.body,
@@ -189,18 +250,13 @@ client.on('message', async msg => {
             }
         });
 
-        const replyText = response.text;
-        
-        // Rispondi su WhatsApp
-        await msg.reply(replyText);
-        console.log("Risposta inviata");
+        await msg.reply(response.text);
 
     } catch (error) {
-        console.error("Errore generazione risposta:", error);
+        console.error("Errore risposta:", error);
     }
 });
 
-console.log("Avvio del client WhatsApp...");
 client.initialize();
 `;
     downloadFile('server.js', content);
@@ -328,8 +384,8 @@ client.initialize();
                         Esporta Bot per FastComet (Node.js)
                     </h3>
                     <p className="text-slate-400 text-sm mb-6 max-w-xl">
-                        Questa app web è solo il controller. Per attivare il bot vero e proprio (che funziona a PC spento), 
-                        scarica i file generati qui sotto e caricali nella sezione "Node.js App" del tuo cPanel.
+                        Versione 2.0 (Fix 503): Il nuovo codice mostra il QR Code direttamente sul tuo dominio 
+                        (es. <code>aleasistemi.eu/chatbot-whatsapp/</code>) invece che nei log.
                     </p>
 
                     <div className="flex flex-col sm:flex-row gap-4 relative z-10">
@@ -341,7 +397,7 @@ client.initialize();
                             <FileCode className="w-5 h-5 mr-3 text-yellow-400" />
                             <div className="text-left">
                                 <div className="font-bold text-sm">Scarica server.js</div>
-                                <div className="text-xs text-slate-500">Logica del Bot</div>
+                                <div className="text-xs text-slate-500">v2.0 con Web QR</div>
                             </div>
                         </button>
                         
@@ -352,7 +408,7 @@ client.initialize();
                             <FileJson className="w-5 h-5 mr-3 text-red-400" />
                             <div className="text-left">
                                 <div className="font-bold text-sm">Scarica package.json</div>
-                                <div className="text-xs text-slate-500">Dipendenze (Librerie)</div>
+                                <div className="text-xs text-slate-500">Aggiornato</div>
                             </div>
                         </button>
                     </div>
@@ -466,75 +522,61 @@ client.initialize();
                  <div className="bg-amber-50 border border-amber-100 rounded-lg p-4 mb-6 text-sm text-amber-800 flex items-start">
                     <MonitorOff className="w-5 h-5 mr-3 shrink-0 mt-0.5" />
                     <p>
-                        <strong>Importante:</strong> Non basta caricare i file HTML. Per un bot WhatsApp che funziona sempre, devi attivare un processo <strong>Node.js</strong> sul server.
+                        <strong>Hai errore 503?</strong> Ho aggiornato i file per risolvere il problema. Segui i punti 1 e 3 attentamente.
                     </p>
                  </div>
 
                  <h3 className="font-bold text-slate-900 mb-4 flex items-center">
                     <span className="w-6 h-6 bg-slate-800 text-white rounded-full flex items-center justify-center text-xs mr-2">1</span>
-                    Scarica i File del Bot
+                    Scarica i NUOVI File
                  </h3>
                  <p className="text-slate-600 text-sm mb-4 pl-8">
-                    Usa i pulsanti neri "Esporta Bot" nella schermata principale per scaricare <code>server.js</code> e <code>package.json</code>.
+                    Usa i pulsanti neri "Esporta Bot" per scaricare la <strong>versione 2.0</strong> di <code>server.js</code> e <code>package.json</code>.
                  </p>
 
                  <h3 className="font-bold text-slate-900 mb-4 flex items-center">
                     <span className="w-6 h-6 bg-slate-800 text-white rounded-full flex items-center justify-center text-xs mr-2">2</span>
-                    Configura cPanel (Setup Node.js App)
+                    Sovrascrivi su cPanel
                  </h3>
                  <div className="space-y-4 pl-8 border-l-2 border-slate-100 ml-3 text-sm text-slate-600">
                     <div className="flex items-start">
                        <span className="font-bold mr-2 text-slate-800">A.</span>
-                       <div>Accedi al cPanel di FastComet e cerca l'icona <strong>"Setup Node.js App"</strong>.</div>
+                       <div>Vai su FastComet &gt; File Manager.</div>
                     </div>
                     <div className="flex items-start">
                        <span className="font-bold mr-2 text-slate-800">B.</span>
-                       <div>Clicca su <strong>"Create Application"</strong>.</div>
+                       <div>Entra nella cartella <code>chatbot-whatsapp</code>.</div>
                     </div>
                     <div className="flex items-start">
                        <span className="font-bold mr-2 text-slate-800">C.</span>
-                       <div>
-                           Imposta:<br/>
-                           - Node.js Version: <strong>18.x o superiore</strong><br/>
-                           - Application mode: <strong>Production</strong><br/>
-                           - Application root: <code>bot-whatsapp</code> (o una cartella a scelta)<br/>
-                           - Application startup file: <code>server.js</code>
-                       </div>
-                    </div>
-                     <div className="flex items-start">
-                       <span className="font-bold mr-2 text-slate-800">D.</span>
-                       <div>Clicca "Create".</div>
+                       <div>Cancella i vecchi file e carica i nuovi.</div>
                     </div>
                  </div>
 
                  <h3 className="font-bold text-slate-900 mb-4 mt-6 flex items-center">
                     <span className="w-6 h-6 bg-slate-800 text-white rounded-full flex items-center justify-center text-xs mr-2">3</span>
-                    Carica i File e Avvia
+                    Installa Librerie e Riavvia (Fondamentale)
                  </h3>
                   <div className="space-y-4 pl-8 border-l-2 border-slate-100 ml-3 text-sm text-slate-600">
                     <div className="flex items-start">
                        <span className="font-bold mr-2 text-slate-800">A.</span>
-                       <div>Vai nel File Manager, nella cartella <code>bot-whatsapp</code> appena creata.</div>
+                       <div>Vai su "Setup Node.js App".</div>
                     </div>
                     <div className="flex items-start">
                        <span className="font-bold mr-2 text-slate-800">B.</span>
-                       <div>Carica i file <code>server.js</code> e <code>package.json</code> che hai scaricato.</div>
-                    </div>
-                    <div className="flex items-start">
-                       <span className="font-bold mr-2 text-slate-800">C.</span>
-                       <div>Torna su "Setup Node.js App" e clicca <strong>"Run NPM Install"</strong>.</div>
+                       <div>Clicca su <strong>"Run NPM Install"</strong> (deve installare 'qrcode').</div>
                     </div>
                      <div className="flex items-start">
-                       <span className="font-bold mr-2 text-slate-800">D.</span>
-                       <div>Riavvia l'applicazione.</div>
+                       <span className="font-bold mr-2 text-slate-800">C.</span>
+                       <div>Clicca il pulsante verde <strong>"Restart"</strong>.</div>
                     </div>
                  </div>
 
                  <div className="mt-6 pt-4 border-t border-slate-100 bg-emerald-50/50 -mx-8 px-8 pb-4">
-                     <h4 className="font-bold text-sm text-slate-800 mb-2 mt-4 flex items-center"><Terminal className="w-4 h-4 mr-2"/>Collegamento Finale</h4>
+                     <h4 className="font-bold text-sm text-slate-800 mb-2 mt-4 flex items-center"><Globe className="w-4 h-4 mr-2"/>Test Finale</h4>
                      <p className="text-xs text-slate-600">
-                       Poiché il server non ha uno schermo, il QR code apparirà nel "Log" dell'applicazione Node.js nel cPanel. 
-                       Apri i log, scannerizza il codice e il bot sarà online per sempre!
+                       Ora apri il tuo link (es. <code>aleasistemi.eu/chatbot-whatsapp/</code>).
+                       Dovresti vedere una pagina bianca con il <strong>QR Code</strong> al centro!
                      </p>
                  </div>
               </div>
