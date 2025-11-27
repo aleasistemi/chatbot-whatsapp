@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BotAccount, DEFAULT_INSTRUCTION } from '../types';
-import { Save, RefreshCw, ChevronDown, Check, Smartphone, Cloud, UploadCloud, Loader2, Power, Key, ExternalLink, ShieldAlert, Eye, EyeOff, HelpCircle, X, Server, FileUp, Globe, MonitorOff, Download, FileJson, FileCode, Terminal, Link as LinkIcon, Zap } from 'lucide-react';
+import { Save, RefreshCw, ChevronDown, Check, Smartphone, Cloud, UploadCloud, Loader2, Power, Key, ExternalLink, ShieldAlert, Eye, EyeOff, HelpCircle, X, Server, FileUp, Globe, MonitorOff, Download, FileJson, FileCode, Terminal, Link as LinkIcon, Zap, Trash2 } from 'lucide-react';
 
 interface ConfigScreenProps {
   account: BotAccount;
@@ -74,7 +74,7 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
     }
   };
 
-  // --- GENERATION LOGIC FOR REAL SERVER CODE (BAILEYS EDITION) ---
+  // --- GENERATION LOGIC FOR REAL SERVER CODE (BAILEYS EDITION V4.1) ---
   const downloadFile = (filename: string, content: string) => {
     const element = document.createElement('a');
     const file = new Blob([content], {type: 'text/plain'});
@@ -87,9 +87,9 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
 
   const generatePackageJson = () => {
     const pkg = {
-      "name": `whatsapp-bot-${account.name.toLowerCase().replace(/\s+/g, '-')}`,
-      "version": "4.0.0",
-      "description": "Bot WhatsApp Lightweight (Baileys) per Shared Hosting",
+      "name": `whatsapp-bot-v4`,
+      "version": "4.1.0",
+      "description": "Bot WhatsApp Baileys V4.1 (No Puppeteer)",
       "main": "server.js",
       "scripts": {
         "start": "node server.js"
@@ -109,10 +109,11 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
 
   const generateServerJs = () => {
     const content = `/**
- * BOT WA V4.0 - LIGHTWEIGHT EDITION (NO CHROME)
+ * BOT WA V4.1 - LIGHTWEIGHT EDITION (NO PUPPETEER/CHROME)
  * Motore: Baileys (WebSocket)
  * Compatibile con FastComet/cPanel Shared Hosting
  * Configurazione: ${account.name}
+ * Generato il: ${new Date().toLocaleString()}
  */
 
 const http = require('http');
@@ -127,7 +128,7 @@ const PORT = process.env.PORT || 3000;
 
 // Stato Globale
 let qrCodeDataUrl = '';
-let statusMessage = 'Avvio Socket WhatsApp...';
+let statusMessage = 'Inizializzazione V4.1...';
 let isConnected = false;
 let logs = [];
 let retryCount = 0;
@@ -148,7 +149,7 @@ try {
 } catch (e) { addLog("Errore AI config: " + e.message); }
 
 
-// 1. Web Server UI
+// 1. Web Server UI (BACKGROUND AZZURRO PER DISTINGUERE V4)
 const server = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     
@@ -156,21 +157,22 @@ const server = http.createServer((req, res) => {
     <!DOCTYPE html>
     <html>
         <head>
-            <title>Bot Panel v4.0: ${account.name}</title>
-            <meta http-equiv="refresh" content="3">
+            <title>Bot V4.1: ${account.name}</title>
+            <meta http-equiv="refresh" content="5">
             <meta name="viewport" content="width=device-width, initial-scale=1">
             <style>
-                body { font-family: sans-serif; background: #f0f2f5; color: #111b21; padding: 20px; text-align: center; }
-                .card { background: white; max-width: 600px; margin: 0 auto; padding: 30px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+                body { font-family: sans-serif; background: #e0f2fe; color: #0c4a6e; padding: 20px; text-align: center; }
+                .card { background: white; max-width: 600px; margin: 0 auto; padding: 30px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); border: 1px solid #bae6fd; }
                 .status-badge { display: inline-block; padding: 8px 16px; border-radius: 20px; font-weight: bold; margin-bottom: 20px; font-size: 14px; }
                 .online { background: #d9fdd3; color: #008069; }
-                .wait { background: #e9edef; color: #111b21; }
-                .log-box { text-align: left; background: #1f2937; color: #00ff00; padding: 15px; border-radius: 8px; font-size: 11px; margin-top: 20px; max-height: 300px; overflow-y: auto; font-family: monospace; white-space: pre-wrap; }
+                .wait { background: #f0f9ff; color: #0284c7; border: 1px solid #bae6fd; }
+                .log-box { text-align: left; background: #0f172a; color: #38bdf8; padding: 15px; border-radius: 8px; font-size: 11px; margin-top: 20px; max-height: 300px; overflow-y: auto; font-family: monospace; white-space: pre-wrap; }
+                h1 { color: #0369a1; }
             </style>
         </head>
         <body>
             <div class="card">
-                <h1>⚡ ${account.name} (Light)</h1>
+                <h1>💎 ${account.name} (V4.1)</h1>
                 <div class="status-badge \${isConnected ? 'online' : 'wait'}">
                     \${isConnected ? '✅ ONLINE & ATTIVO' : '⏳ STATO: ' + statusMessage}
                 </div>
@@ -178,8 +180,8 @@ const server = http.createServer((req, res) => {
 
     if (qrCodeDataUrl && !isConnected) {
         html += \`
-            <div style="background: #fff; padding: 20px; border: 2px dashed #008069; border-radius: 10px;">
-                <h3>SCANSIONA ORA:</h3>
+            <div style="background: #fff; padding: 20px; border: 2px dashed #0284c7; border-radius: 10px; margin-bottom: 20px;">
+                <h3 style="color: #0284c7; margin-top: 0;">SCANSIONA ORA IL QR:</h3>
                 <img src="\${qrCodeDataUrl}" alt="QR Code" width="280" />
                 <p>Apri WhatsApp > Impostazioni > Dispositivi collegati</p>
             </div>
@@ -190,7 +192,10 @@ const server = http.createServer((req, res) => {
                 <div class="log-box">
                     \${logs.map(l => \`<div>\${l}</div>\`).join('')}
                 </div>
-                <p style="font-size: 11px; color: #888; margin-top: 20px;">v4.0 Baileys Engine • No Browser Required</p>
+                <p style="font-size: 11px; color: #64748b; margin-top: 20px;">
+                   <strong>Engine:</strong> Baileys (WebSocket) • <strong>No Chrome/Puppeteer</strong><br/>
+                   Server Node.js V4.1
+                </p>
             </div>
         </body>
     </html>
@@ -199,28 +204,30 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, () => {
-    addLog(\`WEB SERVER V4.0 STARTED ON PORT \${PORT}\`);
+    addLog(\`WEB SERVER V4.1 STARTED ON PORT \${PORT}\`);
     startBaileys();
 });
 
 
 // 2. LOGICA BAILEYS (Lightweight WhatsApp)
 async function startBaileys() {
+    addLog("Avvio modulo Baileys...");
     const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
     
     const sock = makeWASocket({
         auth: state,
         printQRInTerminal: false, // Gestiamo noi il QR
         logger: pino({ level: 'silent' }), // Zittiamo i log interni
-        browser: ["BotManager", "Chrome", "1.0"]
+        browser: ["${account.name}", "Chrome", "120.0.6099.199"], // Spoof browser, non lancia Chrome vero!
+        connectTimeoutMs: 60000,
     });
 
     sock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect, qr } = update;
         
         if(qr) {
-            statusMessage = "QR Code Generato. Scansiona!";
-            addLog("QR Code ricevuto via WebSocket");
+            statusMessage = "QR Code Pronto.";
+            addLog("QR Code ricevuto! Visualizzalo sopra.");
             qrcode.toDataURL(qr, (err, url) => {
                 if(!err) qrCodeDataUrl = url;
             });
@@ -231,10 +238,10 @@ async function startBaileys() {
             qrCodeDataUrl = '';
             const shouldReconnect = (lastDisconnect.error)?.output?.statusCode !== DisconnectReason.loggedOut;
             addLog('Connessione chiusa. Riconnessione: ' + shouldReconnect);
-            statusMessage = "Disconnesso. Riconnessione in corso...";
+            statusMessage = "Disconnesso. Riprovo...";
             
             if(shouldReconnect) {
-                setTimeout(startBaileys, 2000);
+                setTimeout(startBaileys, 3000);
             } else {
                 addLog("Sessione scaduta (Logout). Cancella cartella 'auth_info_baileys' per riavviare.");
                 statusMessage = "Sessione Scaduta. Riavviare pulito.";
@@ -242,7 +249,7 @@ async function startBaileys() {
         } else if(connection === 'open') {
             isConnected = true;
             qrCodeDataUrl = '';
-            statusMessage = "Connesso ai server WhatsApp!";
+            statusMessage = "Connesso a WhatsApp!";
             addLog(">>> DISPOSITIVO CONNESSO CON SUCCESSO <<<");
             retryCount = 0;
         }
@@ -261,7 +268,7 @@ async function startBaileys() {
 
             if(!textBody) continue;
 
-            addLog(\`Messaggio da \${remoteJid}: \${textBody.substring(0, 20)}...\`);
+            addLog(\`Messaggio da \${remoteJid.substring(0,6)}...: \${textBody.substring(0, 20)}...\`);
 
             try {
                 if(ai) {
@@ -347,7 +354,7 @@ async function startBaileys() {
                 className="flex items-center px-3 py-2 bg-indigo-900 text-white rounded-lg text-xs font-bold hover:bg-indigo-800 transition-colors shadow-sm"
              >
                 <Zap className="w-3.5 h-3.5 mr-2 text-yellow-400" />
-                Guida v4.0 (Light)
+                Guida Installazione v4.1
              </button>
              
              <div className={`flex items-center px-3 py-1.5 rounded-full border text-xs font-bold uppercase tracking-wide ml-2 ${
@@ -399,12 +406,13 @@ async function startBaileys() {
                     <div className="absolute top-0 right-0 p-8 opacity-10">
                         <Zap className="w-32 h-32" />
                     </div>
-                    <h3 className="text-lg font-bold mb-2 flex items-center">
-                        <Download className="w-5 h-5 mr-2 text-[#00a884]" />
-                        1. Esporta File Server (v4.0 Light)
+                    <h3 className="text-lg font-bold mb-2 flex items-center text-blue-300">
+                        <Download className="w-5 h-5 mr-2" />
+                        Step 1: Scarica File V4.1
                     </h3>
                     <p className="text-slate-400 text-sm mb-6 max-w-xl">
-                        Versione 4.0 riscritta con motore <strong>Baileys</strong>. Non richiede Chrome. Ideale per FastComet e Hosting Condiviso.
+                        Versione <strong>4.1 Clean Install</strong>. Risolve definitivamente l'errore "Browser Process" usando Baileys. <br/>
+                        <span className="text-yellow-400 font-bold">NOTA: Devi cancellare la cartella node_modules prima di caricare questi file!</span>
                     </p>
 
                     <div className="flex flex-col sm:flex-row gap-4 relative z-10">
@@ -413,10 +421,10 @@ async function startBaileys() {
                             disabled={!localConfig.apiKey}
                             className={`flex-1 flex items-center justify-center p-3 rounded-lg border border-slate-700 hover:bg-slate-800 transition-colors ${!localConfig.apiKey ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
-                            <FileCode className="w-5 h-5 mr-3 text-yellow-400" />
+                            <FileCode className="w-5 h-5 mr-3 text-blue-400" />
                             <div className="text-left">
                                 <div className="font-bold text-sm">Scarica server.js</div>
-                                <div className="text-xs text-slate-500">v4.0 (No Chrome)</div>
+                                <div className="text-xs text-slate-500">v4.1 Baileys (No Puppeteer)</div>
                             </div>
                         </button>
                         
@@ -427,7 +435,7 @@ async function startBaileys() {
                             <FileJson className="w-5 h-5 mr-3 text-red-400" />
                             <div className="text-left">
                                 <div className="font-bold text-sm">Scarica package.json</div>
-                                <div className="text-xs text-slate-500">Nuove Dipendenze</div>
+                                <div className="text-xs text-slate-500">Nuove Dipendenze v4.1</div>
                             </div>
                         </button>
                     </div>
@@ -437,10 +445,11 @@ async function startBaileys() {
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 relative overflow-hidden">
                     <h3 className="text-lg font-bold mb-4 flex items-center text-slate-900">
                         <LinkIcon className="w-5 h-5 mr-2 text-blue-600" />
-                        2. Apri Pannello QR Code
+                        Step 2: Verifica e Connetti
                     </h3>
                     <p className="text-sm text-slate-500 mb-4">
-                        Dopo aver caricato i nuovi file v4.0 e fatto "Run NPM Install".
+                        Dopo aver caricato i file e riavviato su FastComet, apri questo link. <br/>
+                        <span className="font-bold text-slate-700">Se vedi una pagina AZZURRA, è la V4.1 corretta. Se è bianca, è ancora la vecchia.</span>
                     </p>
                     
                     <div className="flex gap-2">
@@ -458,7 +467,7 @@ async function startBaileys() {
                             onClick={(e) => !serverUrl && e.preventDefault()}
                             className={`px-6 py-2 rounded-lg font-bold text-white flex items-center ${serverUrl ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-300 cursor-not-allowed'}`}
                         >
-                            APRI PAGINA QR <ExternalLink className="w-4 h-4 ml-2" />
+                            APRI (Cerca Pagina Azzurra) <ExternalLink className="w-4 h-4 ml-2" />
                         </a>
                     </div>
                 </div>
@@ -538,18 +547,18 @@ async function startBaileys() {
             </div>
         </div>
 
-        {/* Modal Guida FastComet V4.0 */}
+        {/* Modal Guida FastComet V4.1 */}
         {showDeployGuide && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-0 overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]">
-              <div className="bg-indigo-900 p-6 text-white flex justify-between items-center shrink-0">
+              <div className="bg-blue-600 p-6 text-white flex justify-between items-center shrink-0">
                   <div className="flex items-center space-x-3">
                      <div className="bg-white/20 p-2 rounded-lg">
-                        <Zap className="w-6 h-6 text-yellow-400" />
+                        <Trash2 className="w-6 h-6 text-white" />
                      </div>
                      <div>
-                        <h2 className="text-xl font-bold">Guida v4.0 Light Edition</h2>
-                        <p className="text-indigo-200 text-sm">Motore Baileys (No-Browser)</p>
+                        <h2 className="text-xl font-bold">Installazione Pulita V4.1</h2>
+                        <p className="text-blue-100 text-sm">Passaggio a Baileys (No Puppeteer)</p>
                      </div>
                   </div>
                   <button onClick={() => setShowDeployGuide(false)} className="bg-white/10 hover:bg-white/20 p-2 rounded-full transition-colors">
@@ -558,26 +567,30 @@ async function startBaileys() {
               </div>
               
               <div className="p-8 overflow-y-auto">
-                 <div className="bg-yellow-50 border border-yellow-100 rounded-lg p-4 mb-6 text-sm text-yellow-800 flex items-start">
+                 <div className="bg-red-50 border border-red-100 rounded-lg p-4 mb-6 text-sm text-red-800 flex items-start">
                     <ShieldAlert className="w-5 h-5 mr-3 shrink-0 mt-0.5" />
                     <p>
-                        <strong>Perché questo cambio?</strong> I server FastComet (Shared) non permettono di installare Chrome (errore libatk). Abbiamo cambiato tecnologia passando a <strong>Baileys</strong>, che non usa il browser e funziona ovunque.
+                        <strong>Se vedi errore Puppeteer:</strong> Significa che stai ancora usando i file vecchi. La V4.1 non ha Puppeteer. Segui la procedura qui sotto per rimuoverli.
                     </p>
                  </div>
 
-                 <h3 className="font-bold text-slate-900 mb-4">Procedura Aggiornamento Obbligatoria:</h3>
-                 <ol className="list-decimal list-inside space-y-4 text-slate-600 ml-2">
-                    <li>Scarica il nuovo <strong>package.json</strong> (le dipendenze sono cambiate).</li>
-                    <li>Scarica il nuovo <strong>server.js</strong> (v4.0).</li>
-                    <li>Su FastComet, <strong>CANCELLA</strong> la cartella <code>node_modules</code> esistente (per fare pulizia).</li>
-                    <li>Carica i due nuovi file sovrascrivendo i vecchi.</li>
-                    <li>Vai su <strong>Setup Node.js App</strong> e clicca <strong>Run NPM Install</strong>.</li>
-                    <li>Infine clicca <strong>RESTART</strong>.</li>
+                 <h3 className="font-bold text-slate-900 mb-4">Procedura CLEAN INSTALL:</h3>
+                 <ol className="list-decimal list-inside space-y-4 text-slate-600 ml-2 text-sm">
+                    <li>Scarica i nuovi file <strong>server.js</strong> (V4.1) e <strong>package.json</strong> da questa schermata.</li>
+                    <li>
+                        Vai su FastComet File Manager e <strong>CANCELLA</strong> la cartella <code>node_modules</code>.
+                        <br/><span className="text-xs text-slate-400 ml-5">Questo rimuove la vecchia libreria Puppeteer.</span>
+                    </li>
+                    <li>Carica i due nuovi file sovrascrivendo quelli esistenti.</li>
+                    <li>Vai su <strong>Setup Node.js App</strong> nel cPanel.</li>
+                    <li>Clicca il pulsante <strong>Run NPM Install</strong> e aspetta che finisca.</li>
+                    <li>Clicca <strong>RESTART</strong>.</li>
                  </ol>
                  
-                 <p className="mt-6 text-xs text-slate-500 italic border-t pt-2">
-                     Se vedi ancora errori vecchi, assicurati di aver cancellato node_modules e reinstallato le dipendenze.
-                 </p>
+                 <div className="mt-6 p-4 bg-blue-50 border border-blue-100 rounded text-center">
+                     <p className="text-blue-800 font-bold text-sm">Come capire se funziona?</p>
+                     <p className="text-blue-600 text-xs">Apri il tuo link. Se la pagina è <strong className="text-blue-800">AZZURRA</strong>, hai installato la V4.1 correttamente.</p>
+                 </div>
               </div>
               
               <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end">

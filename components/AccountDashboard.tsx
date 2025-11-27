@@ -382,38 +382,38 @@ export const AccountDashboard: React.FC<AccountDashboardProps> = ({
       {connectionStep === 'production' && (
           <div className="fixed inset-0 bg-slate-900/90 flex items-center justify-center z-50 p-4 backdrop-blur-md">
              <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full p-0 overflow-hidden animate-in slide-in-from-bottom-10 duration-300">
-                <div className="bg-slate-900 p-6 flex justify-between items-center">
+                <div className="bg-blue-600 p-6 flex justify-between items-center">
                      <h2 className="text-xl font-bold text-white flex items-center">
-                         <Terminal className="w-6 h-6 mr-3 text-[#00a884]" />
-                         Collegamento Server Reale
+                         <Terminal className="w-6 h-6 mr-3 text-blue-200" />
+                         Collegamento Server Reale V4.1
                      </h2>
                      <button onClick={() => setConnectionStep('none')} className="text-white/50 hover:text-white"><X className="w-6 h-6"/></button>
                 </div>
                 
                 <div className="p-8">
-                    <div className="bg-emerald-50 border-l-4 border-emerald-500 p-4 mb-8">
+                    <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-8">
                         <div className="flex">
-                            <Globe className="h-6 w-6 text-emerald-600 mr-3" />
+                            <Globe className="h-6 w-6 text-blue-600 mr-3" />
                             <div>
-                                <h3 className="text-sm font-bold text-emerald-800">Il QR Code è sulla tua pagina web!</h3>
-                                <p className="text-sm text-emerald-700 mt-1">
-                                    Con l'ultimo aggiornamento (v3.0), non devi più guardare i log.
-                                    Il QR Code apparirà direttamente aprendo il tuo link FastComet.
+                                <h3 className="text-sm font-bold text-blue-800">Verifica Visiva Colore</h3>
+                                <p className="text-sm text-blue-700 mt-1">
+                                    Apri il link. Se la pagina è <strong>BIANCA</strong>, stai ancora usando la versione vecchia (che dà errore Puppeteer).<br/>
+                                    Devi vedere una pagina <strong>AZZURRA</strong> (V4.1). Se non la vedi, non hai caricato i file o riavviato bene.
                                 </p>
                             </div>
                         </div>
                     </div>
 
-                    <h3 className="font-bold text-slate-900 mb-4">Istruzioni:</h3>
+                    <h3 className="font-bold text-slate-900 mb-4">Istruzioni Rapide:</h3>
                     <ol className="list-decimal list-inside space-y-4 text-slate-600 ml-2">
                          <li>
-                            Se non l'hai fatto, vai in <strong>Configurazione</strong>, scarica <code>server.js</code> (v3.0) e caricalo su FastComet.
+                            Aggiorna <code>server.js</code> e <code>package.json</code> con la V4.1 (scaricali da Configurazione).
                         </li>
                         <li>
-                            Apri il tuo link qui sotto. Se vedi "503", aspetta 1 minuto e ricarica (il server si sta riavviando).
+                            <strong className="text-red-500">IMPORTANTE:</strong> Cancella la cartella <code>node_modules</code> su FastComet prima di riavviare.
                         </li>
                         <li>
-                            Apri WhatsApp sul telefono &rarr; Dispositivi Collegati &rarr; Scannerizza il QR dal sito.
+                            Apri WhatsApp sul telefono &rarr; Dispositivi Collegati &rarr; Scannerizza il QR dal sito azzurro.
                         </li>
                     </ol>
 
@@ -435,7 +435,7 @@ export const AccountDashboard: React.FC<AccountDashboardProps> = ({
                             onClick={(e) => !serverUrl && e.preventDefault()}
                             className={`px-6 py-3 rounded-lg font-bold text-white flex items-center whitespace-nowrap ${serverUrl ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-300 cursor-not-allowed'}`}
                         >
-                            APRI PAGINA QR <ExternalLink className="w-4 h-4 ml-2" />
+                            CERCA PAGINA AZZURRA <ExternalLink className="w-4 h-4 ml-2" />
                         </a>
                     </div>
                 </div>
