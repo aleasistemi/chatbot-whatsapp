@@ -119,7 +119,7 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
     }
   };
 
-  // --- GENERATION LOGIC FOR REAL SERVER CODE (V14 CONTROL MODE) ---
+  // --- GENERATION LOGIC FOR REAL SERVER CODE (V15 CONTROL MODE) ---
   const downloadFile = (filename: string, content: string) => {
     const element = document.createElement('a');
     const file = new Blob([content], {type: 'text/plain'});
@@ -131,11 +131,11 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
   };
 
   const generatePackageJson = () => {
-    // V14: Same dependencies as V13
+    // V15: Same dependencies as V14
     const pkg = {
-      "name": "whatsapp-bot-v14-control",
-      "version": "14.0.0",
-      "description": "Bot WhatsApp V14 (Control Mode)",
+      "name": "whatsapp-bot-v15-control",
+      "version": "15.0.0",
+      "description": "Bot WhatsApp V15 (Session Control)",
       "main": "server.js",
       "scripts": {
         "start": "node server.js"
@@ -160,8 +160,8 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
 
   const generateServerJs = () => {
     const content = `/**
- * BOT WA V14.0 - CONTROL MODE
- * Fixes: Real Logout, Session Wiping, Active/Pause Toggle
+ * BOT WA V15.0 - SESSION CONTROL
+ * Fixes: "Stuck Connected" state, Robust Hard Reset, Singleton Logic
  */
 
 const http = require('http');
@@ -174,14 +174,14 @@ const path = require('path');
 
 const PORT = process.env.PORT || 10000;
 const CONFIG_FILE = path.join(__dirname, 'bot_config.json');
-const AUTH_DIR = path.join(__dirname, 'auth_info_v14');
+const AUTH_DIR = path.join(__dirname, 'auth_info_v15');
 
 // --- CONFIG ---
 let botConfig = {
     apiKey: process.env.API_KEY,
     systemInstruction: \`${localConfig.systemInstruction.replace(/`/g, '\\`').replace(/\n/g, '\\n')}\`,
     temperature: ${localConfig.temperature},
-    isActive: true // V14: Default Active
+    isActive: true 
 };
 
 if (fs.existsSync(CONFIG_FILE)) {
@@ -197,11 +197,11 @@ function saveConfig() {
 
 // Global State
 let qrCodeDataUrl = '';
-let statusMessage = 'Avvio sistema V14...';
+let statusMessage = 'Avvio sistema V15...';
 let isConnected = false;
 let logs = [];
 let ai = null;
-let sock = null; // V14: Global Socket Reference
+let sock = null; 
 
 function addLog(msg) {
     const time = new Date().toLocaleTimeString();
@@ -234,7 +234,7 @@ const server = http.createServer((req, res) => {
     if (req.url === '/api/qr') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ 
-            qr: qrCodeDataUrl, 
+            qr: isConnected ? null : qrCodeDataUrl, // Don't send QR if already connected
             status: isConnected ? 'CONNECTED' : (qrCodeDataUrl ? 'SCAN_NEEDED' : 'INITIALIZING'),
             instanceId: "${account.instanceId}",
             logs: logs.slice(0, 10),
@@ -243,7 +243,7 @@ const server = http.createServer((req, res) => {
         return;
     }
 
-    // API: Update Config (Prompt, Temp, Active State)
+    // API: Update Config 
     if (req.url === '/api/update-config' && req.method === 'POST') {
         let body = '';
         req.on('data', c => body += c);
@@ -252,7 +252,7 @@ const server = http.createServer((req, res) => {
                 const data = JSON.parse(body);
                 if(data.systemInstruction) botConfig.systemInstruction = data.systemInstruction;
                 if(data.temperature !== undefined) botConfig.temperature = data.temperature;
-                if(data.isActive !== undefined) botConfig.isActive = data.isActive; // V14: Sync Active
+                if(data.isActive !== undefined) botConfig.isActive = data.isActive; 
                 
                 saveConfig();
                 initAI();
@@ -264,30 +264,33 @@ const server = http.createServer((req, res) => {
         return;
     }
 
-    // API: Logout & Wipe Session (V14 Feature)
+    // API: Force Reset / Logout
     if (req.url === '/api/logout' && req.method === 'POST') {
-        addLog("Richiesto Logout forzato da Dashboard...");
+        addLog(">>> HARD RESET RICHIESTO DA DASHBOARD <<<");
         try {
+            // 1. Force close socket
             if(sock) {
                 sock.end(undefined);
                 sock = null;
             }
-            // Wipe Auth Dir
+            // 2. Destroy Auth Dir
             if(fs.existsSync(AUTH_DIR)) {
                 fs.rmSync(AUTH_DIR, { recursive: true, force: true });
-                addLog("Sessione eliminata dal disco.");
+                addLog("File sessione eliminati fisicamente.");
             }
+            
+            // 3. Reset State
             isConnected = false;
             qrCodeDataUrl = '';
-            statusMessage = "SESSIONE RESETTATA";
+            statusMessage = "RESET COMPLETO";
             
-            // Restart to generate new QR
-            setTimeout(startBaileys, 2000);
+            // 4. Restart Logic after delay
+            setTimeout(startBaileys, 3000);
 
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ success: true }));
         } catch(e) {
-            addLog("Errore Logout: " + e.message);
+            addLog("Errore Reset: " + e.message);
             res.writeHead(500); res.end();
         }
         return;
@@ -297,8 +300,7 @@ const server = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(\`<html><body style="font-family:sans-serif;background:#1e1e1e;color:#fff;text-align:center;padding:50px;">
         <div style="background:#2d2d2d;padding:30px;border-radius:15px;max-width:600px;margin:auto;border-top:5px solid #00a884;box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-            <h1 style="color:#00a884;">Bot V14 Control Mode</h1>
-            <p>Node Version: <strong>\${process.version}</strong></p>
+            <h1 style="color:#00a884;">Bot V15 Control</h1>
             <p>Status: <strong>\${isConnected ? '✅ CONNESSO' : '⚠️ ' + statusMessage}</strong></p>
              <p>Mode: <strong>\${botConfig.isActive ? '🟢 ATTIVO' : '🔴 IN PAUSA'}</strong></p>
             <div style="background:#000;padding:15px;border-radius:8px;font-family:monospace;text-align:left;font-size:12px;color:#00a884;max-height:300px;overflow-y:auto;">
@@ -315,7 +317,7 @@ server.listen(PORT, () => {
 
 // 2. WHATSAPP LOGIC
 async function startBaileys() {
-    addLog("Avvio Motore WhatsApp (V14)...");
+    addLog("Avvio Motore WhatsApp (V15)...");
     
     try {
         const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
@@ -338,31 +340,42 @@ async function startBaileys() {
             const { connection, lastDisconnect, qr } = update;
             
             if(qr) {
+                // Ensure we mark as NOT connected if a QR exists
+                isConnected = false;
                 statusMessage = "SCANSIONA QR";
                 qrcode.toDataURL(qr, (err, url) => {
                     if(!err) qrCodeDataUrl = url;
                 });
-                addLog("Nuovo QR Code generato (Pronto per nuovo telefono)");
+                addLog("QR Code Rigenerato (Pronto)");
             }
 
             if(connection === 'close') {
                 isConnected = false;
+                qrCodeDataUrl = ''; // Clear QR on close to avoid stale image
                 const error = lastDisconnect?.error;
                 const statusCode = error?.output?.statusCode;
                 
-                // Avoid logging intentional logout
+                // If it was a deliberate logout or 401 (Unauthorized), we MUST clear session
+                if (statusCode === DisconnectReason.loggedOut) {
+                    addLog("Logout ricevuto da WhatsApp. Pulisco sessione...");
+                     if(fs.existsSync(AUTH_DIR)) {
+                        fs.rmSync(AUTH_DIR, { recursive: true, force: true });
+                    }
+                }
+
                 if (statusCode !== DisconnectReason.loggedOut) {
-                    addLog(\`Disconnesso: \${error?.message || 'Unknown'}\`);
+                    addLog(\`Disconnesso: \${error?.message || 'Reconnecting...'}\`);
                     setTimeout(startBaileys, 3000);
                 } else {
-                    addLog("Logout completato. In attesa...");
+                    addLog("Attesa riavvio post-logout...");
+                    setTimeout(startBaileys, 3000);
                 }
 
             } else if(connection === 'open') {
                 isConnected = true;
                 qrCodeDataUrl = '';
                 statusMessage = "CONNESSO";
-                addLog(">>> DISPOSITIVO CONNESSO (V14) <<<");
+                addLog(">>> DISPOSITIVO CONNESSO (V15) <<<");
             }
         });
 
@@ -371,11 +384,8 @@ async function startBaileys() {
         sock.ev.on('messages.upsert', async ({ messages, type }) => {
             if(type !== 'notify') return;
             
-            // V14 PAUSE CHECK
-            if(!botConfig.isActive) {
-                // Bot is paused, ignore message
-                return;
-            }
+            // V15 PAUSE CHECK
+            if(!botConfig.isActive) return;
 
             for(const msg of messages) {
                 if(!msg.message || msg.key.fromMe) continue;
@@ -543,10 +553,10 @@ async function startBaileys() {
                     </div>
                     <h3 className="text-lg font-bold mb-2 flex items-center text-emerald-100">
                         <Download className="w-5 h-5 mr-2" />
-                        Download Server V14 (Control Mode)
+                        Download Server V15 (Session Fix)
                     </h3>
                     <p className="text-emerald-100/80 text-sm mb-6 max-w-xl">
-                        Include API di controllo remoto per Logout reale (cambio telefono) e funzione Pausa immediata.
+                        Versione migliorata con pulsante RESET per sbloccare sessioni fantasma e rigenerare il QR Code.
                     </p>
 
                     <div className="flex flex-col sm:flex-row gap-3 relative z-10">
@@ -555,7 +565,7 @@ async function startBaileys() {
                             className={`flex-1 flex items-center justify-center p-3 rounded-lg border border-emerald-400 bg-emerald-900/40 hover:bg-emerald-800/60 transition-colors`}
                         >
                             <FileCode className="w-4 h-4 mr-2 text-emerald-300" />
-                            <span className="font-bold text-sm">server.js (V14)</span>
+                            <span className="font-bold text-sm">server.js (V15)</span>
                         </button>
                         
                         <button 
@@ -706,7 +716,7 @@ async function startBaileys() {
                  <div className="bg-slate-100 p-4 rounded-lg border border-slate-200">
                     <h4 className="font-bold text-slate-800 mb-2">1. Prepara i file</h4>
                     <ul className="list-disc list-inside space-y-1">
-                        <li>Scarica <code>server.js</code> (V14) e <code>package.json</code> da qui.</li>
+                        <li>Scarica <code>server.js</code> (V15) e <code>package.json</code> da qui.</li>
                         <li>Carica questi 2 file nel tuo Repository GitHub.</li>
                     </ul>
                  </div>

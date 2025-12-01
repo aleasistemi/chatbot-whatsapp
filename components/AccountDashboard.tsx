@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { BotAccount, MAX_ACCOUNTS } from '../types';
-import { Plus, QrCode, Smartphone, Edit3, Server, Globe, Activity, Power, Wifi, CloudCheck, ShieldCheck, X, Terminal, AlertTriangle, MonitorPlay, ExternalLink, Key, Loader2, RefreshCw } from 'lucide-react';
+import { Plus, QrCode, Smartphone, Edit3, Server, Globe, Activity, Power, Wifi, CloudCheck, ShieldCheck, X, Terminal, AlertTriangle, MonitorPlay, ExternalLink, Key, Loader2, RefreshCw, Trash2 } from 'lucide-react';
 
 interface AccountDashboardProps {
   accounts: BotAccount[];
@@ -28,6 +28,7 @@ export const AccountDashboard: React.FC<AccountDashboardProps> = ({
   const [remoteQr, setRemoteQr] = useState<string | null>(null);
   const [remoteStatus, setRemoteStatus] = useState<string>('CONNECTING');
   const [pollingInterval, setPollingInterval] = useState<ReturnType<typeof setInterval> | null>(null);
+  const [isResetting, setIsResetting] = useState(false);
   
   const [newName, setNewName] = useState('');
   const [newPhone, setNewPhone] = useState('');
@@ -47,6 +48,7 @@ export const AccountDashboard: React.FC<AccountDashboardProps> = ({
     if (connectionStep === 'production' && serverUrl && selectedAccountId) {
         // Start polling
         const poll = setInterval(async () => {
+            if (isResetting) return; // Pause polling during reset
             try {
                 const cleanUrl = serverUrl.replace(/\/$/, "");
                 const res = await fetch(`${cleanUrl}/api/qr`);
@@ -55,18 +57,8 @@ export const AccountDashboard: React.FC<AccountDashboardProps> = ({
                     setRemoteQr(data.qr || null);
                     setRemoteStatus(data.status);
                     
-                    if (data.status === 'CONNECTED') {
-                        // Auto-complete connection if server says connected
-                        const acc = accounts.find(a => a.id === selectedAccountId);
-                        if(acc && acc.status !== 'connected') {
-                             onUpdate({ 
-                                ...acc, 
-                                status: 'connected', 
-                                serverStatus: 'online', 
-                                lastActive: new Date() 
-                            });
-                        }
-                    }
+                    // V15 FIX: Do NOT auto-connect here blindly.
+                    // Only update state variables, let the UI decide what to show.
                 }
             } catch(e) {
                 console.error("Polling error", e);
@@ -82,7 +74,7 @@ export const AccountDashboard: React.FC<AccountDashboardProps> = ({
     return () => {
         if(pollingInterval) clearInterval(pollingInterval);
     };
-  }, [connectionStep, serverUrl, selectedAccountId]);
+  }, [connectionStep, serverUrl, selectedAccountId, isResetting]);
 
 
   const handleAddSubmit = (e: React.FormEvent) => {
@@ -136,6 +128,27 @@ export const AccountDashboard: React.FC<AccountDashboardProps> = ({
         setTimeout(() => setConnectionStep('none'), 800);
       }
     }, 200);
+  };
+
+  const forceRemoteReset = async () => {
+      if(!serverUrl) return;
+      if(!confirm("Sei sicuro? Questo disconnetterà qualsiasi telefono attualmente collegato al server.")) return;
+      
+      setIsResetting(true);
+      setRemoteStatus('RESETTING');
+      try {
+          const cleanUrl = serverUrl.replace(/\/$/, "");
+          await fetch(`${cleanUrl}/api/logout`, { method: 'POST' });
+          
+          // Wait a bit for server to restart
+          setTimeout(() => {
+              setIsResetting(false);
+              setRemoteStatus('CONNECTING'); // This will trigger polling to find the new QR
+          }, 4000);
+      } catch(e) {
+          alert("Errore durante il reset del server. Verifica l'URL.");
+          setIsResetting(false);
+      }
   };
 
   const disconnect = async (account: BotAccount) => {
@@ -484,12 +497,47 @@ export const AccountDashboard: React.FC<AccountDashboardProps> = ({
 
                             {/* QR Code Container */}
                             <div className="flex justify-center my-6 bg-white p-4 rounded-xl border border-gray-200 shadow-sm relative min-h-[300px] items-center">
-                                {remoteStatus === 'CONNECTED' ? (
-                                    <div className="flex flex-col items-center justify-center text-emerald-600">
-                                        <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mb-4">
-                                            <CloudCheck className="w-10 h-10" />
+                                {isResetting ? (
+                                    <div className="flex flex-col items-center justify-center text-amber-600 animate-pulse">
+                                        <RefreshCw className="w-12 h-12 mb-4 animate-spin" />
+                                        <p className="font-bold text-center">Reset Sessione Server...</p>
+                                        <p className="text-xs">Attendere riavvio motore</p>
+                                    </div>
+                                ) : remoteStatus === 'CONNECTED' ? (
+                                    <div className="flex flex-col items-center justify-center text-center">
+                                        <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mb-4 relative">
+                                            <CloudCheck className="w-10 h-10 text-emerald-600" />
+                                            <div className="absolute -top-1 -right-1 w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center text-white text-xs font-bold border-2 border-white">!</div>
                                         </div>
-                                        <h3 className="font-bold text-lg">Dispositivo Connesso!</h3>
+                                        <h3 className="font-bold text-lg text-slate-800">Rilevata Sessione Attiva</h3>
+                                        <p className="text-sm text-slate-500 mb-6 max-w-[250px]">
+                                            Il server è già connesso a un telefono. Vuoi usare questa connessione o scansionarne una nuova?
+                                        </p>
+                                        
+                                        <div className="space-y-3 w-full">
+                                            <button 
+                                                onClick={() => {
+                                                    onUpdate({ 
+                                                        ...currentAccount, 
+                                                        status: 'connected', 
+                                                        serverStatus: 'online', 
+                                                        lastActive: new Date() 
+                                                    });
+                                                    setConnectionStep('none');
+                                                }}
+                                                className="w-full py-2 bg-emerald-100 text-emerald-700 font-bold rounded-lg hover:bg-emerald-200"
+                                            >
+                                                Usa Sessione Esistente
+                                            </button>
+                                            
+                                            <button 
+                                                onClick={forceRemoteReset}
+                                                className="w-full py-2 bg-red-100 text-red-700 font-bold rounded-lg hover:bg-red-200 flex items-center justify-center"
+                                            >
+                                                <Trash2 className="w-4 h-4 mr-2" />
+                                                RESETTA & NUOVO QR
+                                            </button>
+                                        </div>
                                     </div>
                                 ) : remoteQr ? (
                                     <img 
@@ -518,22 +566,6 @@ export const AccountDashboard: React.FC<AccountDashboardProps> = ({
                             <div className="text-center text-xs text-slate-400">
                                 Status: <span className="font-mono font-bold text-slate-600">{remoteStatus}</span>
                             </div>
-
-                            {/* Simulation Button for "Done" */}
-                            <button 
-                                onClick={() => {
-                                    onUpdate({ 
-                                        ...currentAccount, 
-                                        status: 'connected', 
-                                        serverStatus: 'online', 
-                                        lastActive: new Date() 
-                                    });
-                                    setConnectionStep('none');
-                                }}
-                                className="mt-6 w-full py-3 bg-[#00a884] hover:bg-[#008f6f] text-white font-bold rounded-lg shadow transition-colors"
-                            >
-                                {remoteStatus === 'CONNECTED' ? 'Chiudi e Completa' : 'Forza Stato Connesso'}
-                            </button>
                         </div>
                     )}
                 </div>
