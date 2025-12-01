@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Message, Sender, BotAccount } from '../types';
 import { sendMessageToBot } from '../services/geminiService';
@@ -127,15 +128,6 @@ export const ChatSimulator: React.FC<ChatSimulatorProps> = ({ account }) => {
            </div>
          </div>
          
-         {!account.config.apiKey && (
-             <div className="flex justify-center mb-4">
-                 <div className="bg-white border-l-4 border-red-500 text-red-600 p-3 rounded shadow-sm text-xs max-w-sm">
-                     <p className="font-bold">⚠️ Modalità Demo Limitata</p>
-                     <p>Il bot non risponderà finché non inserisci una API Key valida nelle impostazioni.</p>
-                 </div>
-             </div>
-         )}
-
         {messages.map((msg) => (
           <div
             key={msg.id}

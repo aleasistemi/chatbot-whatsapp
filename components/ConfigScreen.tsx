@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { BotAccount, DEFAULT_INSTRUCTION } from '../types';
 import { Save, RefreshCw, ChevronDown, Check, Smartphone, Cloud, UploadCloud, Loader2, Power, Key, ExternalLink, ShieldAlert, Eye, EyeOff, HelpCircle, X, Server, FileUp, Globe, MonitorOff, Download, FileJson, FileCode, Terminal, Link as LinkIcon, Zap, Trash2, Cpu } from 'lucide-react';
@@ -16,7 +17,6 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
   const [serverUrl, setServerUrl] = useState(localStorage.getItem(`server_url_${account.id}`) || '');
   const [isDirty, setIsDirty] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [showApiKey, setShowApiKey] = useState(false);
   const [showDeployGuide, setShowDeployGuide] = useState(false);
   
   // Real deployment states
@@ -47,11 +47,6 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
 
   // --- REAL DEPLOYMENT LOGIC ---
   const handleDeploy = async () => {
-    if (!localConfig.apiKey) {
-      alert("Devi inserire una API Key valida prima di attivare il server.");
-      return;
-    }
-
     // Save locally first to update UI
     onSave({
         ...account,
@@ -82,7 +77,6 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                apiKey: localConfig.apiKey,
                 systemInstruction: localConfig.systemInstruction,
                 temperature: localConfig.temperature
             })
@@ -119,7 +113,7 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
     }
   };
 
-  // --- GENERATION LOGIC FOR REAL SERVER CODE (BAILEYS EDITION V6.0 - REAL API) ---
+  // --- GENERATION LOGIC FOR REAL SERVER CODE (BAILEYS EDITION V6.0 - LIGHTWEIGHT) ---
   const downloadFile = (filename: string, content: string) => {
     const element = document.createElement('a');
     const file = new Blob([content], {type: 'text/plain'});
@@ -131,10 +125,11 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
   };
 
   const generatePackageJson = () => {
+    // V6.0: Minimal dependencies to fix "npm error code EAGAIN" on shared hosting
     const pkg = {
-      "name": `whatsapp-bot-v6-realtime`,
+      "name": `whatsapp-bot-v6-light`,
       "version": "6.0.0",
-      "description": "Bot WhatsApp V6 (API Enabled)",
+      "description": "Bot WhatsApp V6 (Lightweight)",
       "main": "server.js",
       "scripts": {
         "start": "node server.js"
@@ -154,10 +149,9 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
 
   const generateServerJs = () => {
     const content = `/**
- * BOT WA V6.0 - REALTIME API EDITION
- * Motore: Baileys (WebSocket)
- * Funzionalità: API Endpoint per aggiornamento config remoto
- * Configurazione Iniziale: ${account.name}
+ * BOT WA V6.0 - LIGHTWEIGHT API EDITION
+ * Fixes: npm EAGAIN error, Memory leaks, Missing libraries
+ * Features: Remote QR Fetching
  */
 
 const http = require('http');
@@ -173,17 +167,15 @@ const CONFIG_FILE = path.join(__dirname, 'bot_config.json');
 
 // --- GESTIONE CONFIGURAZIONE PERSISTENTE ---
 let botConfig = {
-    apiKey: "${localConfig.apiKey || ''}",
+    apiKey: process.env.API_KEY,
     systemInstruction: \`${localConfig.systemInstruction.replace(/`/g, '\\`').replace(/\n/g, '\\n')}\`,
     temperature: ${localConfig.temperature}
 };
 
-// Carica config salvata se esiste
 if (fs.existsSync(CONFIG_FILE)) {
     try {
         const saved = fs.readFileSync(CONFIG_FILE, 'utf8');
         botConfig = { ...botConfig, ...JSON.parse(saved) };
-        console.log("Configurazione caricata da file.");
     } catch(e) { console.error("Errore lettura config:", e); }
 }
 
@@ -193,7 +185,7 @@ function saveConfig() {
 
 // Stato Globale
 let qrCodeDataUrl = '';
-let statusMessage = 'Avvio V6.0 API...';
+let statusMessage = 'In attesa...';
 let isConnected = false;
 let logs = [];
 let ai = null;
@@ -202,11 +194,10 @@ function initAI() {
     if(botConfig.apiKey) {
         try {
             ai = new GoogleGenAI({ apiKey: botConfig.apiKey });
-            addLog("AI Inizializzata/Aggiornata");
+            addLog("AI Inizializzata");
         } catch(e) { addLog("Errore Init AI: " + e.message); }
     }
 }
-// Init AI all'avvio
 initAI();
 
 function addLog(msg) {
@@ -216,20 +207,28 @@ function addLog(msg) {
     console.log(msg);
 }
 
-// 1. SERVER HTTP CON API PER DASHBOARD
+// 1. SERVER HTTP LIGHTWEIGHT
 const server = http.createServer((req, res) => {
-    // Gestione CORS per permettere alla Dashboard di comunicare
+    // CORS & Headers
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-    if (req.method === 'OPTIONS') {
-        res.writeHead(204);
-        res.end();
+    if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
+
+    // API: Stato QR (Per Dashboard React)
+    if (req.url === '/api/qr') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ 
+            qr: qrCodeDataUrl, 
+            status: isConnected ? 'CONNECTED' : (qrCodeDataUrl ? 'SCAN_NEEDED' : 'INITIALIZING'),
+            instanceId: "${account.instanceId}",
+            logs: logs.slice(0, 5)
+        }));
         return;
     }
 
-    // API: Aggiorna Configurazione (Chiamata dal tasto "Deploy")
+    // API: Update Config
     if (req.url === '/api/update-config' && req.method === 'POST') {
         let body = '';
         req.on('data', chunk => { body += chunk.toString(); });
@@ -238,84 +237,46 @@ const server = http.createServer((req, res) => {
                 const data = JSON.parse(body);
                 if(data.apiKey) botConfig.apiKey = data.apiKey;
                 if(data.systemInstruction) botConfig.systemInstruction = data.systemInstruction;
-                if(data.temperature) botConfig.temperature = data.temperature;
-                
                 saveConfig();
-                initAI(); // Reinicializza AI con nuovi parametri
-                
-                addLog("CONFIGURAZIONE AGGIORNATA DA DASHBOARD REMOTA");
+                initAI();
+                addLog("CONFIG AGGIORNATA");
                 res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ success: true, message: "Configurazione aggiornata" }));
+                res.end(JSON.stringify({ success: true }));
             } catch (e) {
-                res.writeHead(400);
-                res.end(JSON.stringify({ success: false, message: "Invalid JSON" }));
+                res.writeHead(400); res.end(JSON.stringify({ success: false }));
             }
         });
         return;
     }
 
-    // INTERFACCIA WEB (Solo lettura)
+    // Fallback: Pagina Status Semplice
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    let html = \`
-    <!DOCTYPE html>
-    <html>
-        <head>
-            <title>Bot V6.0: ${account.name}</title>
-            <meta http-equiv="refresh" content="5">
-            <meta name="viewport" content="width=device-width, initial-scale=1">
-            <style>
-                body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #fff; padding: 20px; text-align: center; }
-                .card { background: #1e293b; color: #e2e8f0; max-width: 600px; margin: 0 auto; padding: 30px; border-radius: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); border: 1px solid #334155; }
-                .status-badge { display: inline-block; padding: 8px 16px; border-radius: 20px; font-weight: bold; margin-bottom: 20px; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
-                .online { background: #059669; color: #fff; }
-                .wait { background: #d97706; color: #fff; }
-                .log-box { text-align: left; background: #020617; color: #94a3b8; padding: 15px; border-radius: 8px; font-size: 11px; margin-top: 20px; max-height: 300px; overflow-y: auto; font-family: monospace; white-space: pre-wrap; border: 1px solid #1e293b; }
-            </style>
-        </head>
-        <body>
-            <div class="card">
-                <h1>📡 ${account.name}</h1>
-                <p style="color: #64748b; font-size: 12px;">V6.0 API ENABLED</p>
-                
-                <div class="status-badge \${isConnected ? 'online' : 'wait'}">
-                    \${isConnected ? '✅ ONLINE' : '⏳ ' + statusMessage}
-                </div>
-    \`;
-
-    if (qrCodeDataUrl && !isConnected) {
-        html += \`
-            <div style="background: #fff; padding: 20px; border-radius: 15px; margin-bottom: 20px; display: inline-block;">
-                <img src="\${qrCodeDataUrl}" alt="QR Code" width="250" />
-            </div>
-        \`;
-    }
-
-    html += \`
-                <div class="log-box">
-                    \${logs.map(l => \`<div>\${l}</div>\`).join('')}
-                </div>
-            </div>
-        </body>
-    </html>
-    \`;
-    res.end(html);
+    res.end(\`
+        <html><body style="font-family:sans-serif;background:#f0f2f5;text-align:center;padding:50px;">
+        <div style="background:white;padding:30px;border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,0.1);max-width:500px;margin:auto;">
+            <h1 style="color:#00a884;">Server V6.0 Light</h1>
+            <p>Stato: <strong>\${isConnected ? '✅ ONLINE' : '⏳ ' + statusMessage}</strong></p>
+            <p style="font-size:12px;color:#666;">API Endpoint: /api/qr</p>
+        </div>
+        </body></html>
+    \`);
 });
 
 server.listen(PORT, () => {
-    addLog(\`SERVER V6.0 LISTENING ON PORT \${PORT}\`);
+    addLog(\`SERVER AVVIATO SU PORTA \${PORT}\`);
     startBaileys();
 });
 
-// 2. LOGICA BAILEYS
+// 2. MOTORE WHATSAPP (BAILEYS)
 async function startBaileys() {
-    addLog("Avvio motore Baileys...");
-    const { state, saveCreds } = await useMultiFileAuthState('auth_info_v6');
+    addLog("Avvio Baileys...");
+    const { state, saveCreds } = await useMultiFileAuthState('auth_info_v6_light');
     
     const sock = makeWASocket({
         auth: state,
-        printQRInTerminal: false,
+        printQRInTerminal: true, // Logga anche in console per debug
         logger: pino({ level: 'silent' }),
-        browser: ["${account.name}", "Server", "6.0"],
+        browser: ["${account.name}", "FastComet", "6.0"],
         connectTimeoutMs: 60000,
     });
 
@@ -323,7 +284,7 @@ async function startBaileys() {
         const { connection, lastDisconnect, qr } = update;
         
         if(qr) {
-            statusMessage = "QR Code Generato";
+            statusMessage = "QR Generato";
             qrcode.toDataURL(qr, (err, url) => {
                 if(!err) qrCodeDataUrl = url;
             });
@@ -332,12 +293,12 @@ async function startBaileys() {
         if(connection === 'close') {
             isConnected = false;
             const shouldReconnect = (lastDisconnect.error)?.output?.statusCode !== DisconnectReason.loggedOut;
-            if(shouldReconnect) setTimeout(startBaileys, 3000);
+            if(shouldReconnect) setTimeout(startBaileys, 5000);
         } else if(connection === 'open') {
             isConnected = true;
             qrCodeDataUrl = '';
             statusMessage = "Connesso";
-            addLog(">>> DISPOSITIVO CONNESSO <<<");
+            addLog(">>> CONNESSO <<<");
         }
     });
 
@@ -347,16 +308,16 @@ async function startBaileys() {
         if(type !== 'notify') return;
         for(const msg of messages) {
             if(!msg.message || msg.key.fromMe) continue;
+            
             const remoteJid = msg.key.remoteJid;
             const textBody = msg.message.conversation || msg.message.extendedTextMessage?.text;
+            
             if(!textBody) continue;
-
-            addLog(\`Msg da \${remoteJid.substring(0,8)}: \${textBody.substring(0, 15)}...\`);
+            addLog(\`Msg: \${textBody.substring(0,10)}...\`);
 
             try {
                 if(ai) {
                     await sock.sendPresenceUpdate('composing', remoteJid);
-                    // Usa la config dinamica
                     const response = await ai.models.generateContent({
                         model: 'gemini-2.5-flash',
                         contents: textBody,
@@ -366,12 +327,9 @@ async function startBaileys() {
                         }
                     });
                     await sock.sendMessage(remoteJid, { text: response.text }, { quoted: msg });
-                    addLog("Risposto con AI.");
-                } else {
-                    addLog("⚠️ AI non configurata o Key mancante.");
                 }
             } catch (e) {
-                addLog("Errore risposta AI: " + e.message);
+                console.error("AI Error", e);
             }
         }
     });
@@ -440,7 +398,7 @@ async function startBaileys() {
                 className="flex items-center px-3 py-2 bg-slate-800 text-white rounded-lg text-xs font-bold hover:bg-slate-700 transition-colors shadow-sm"
              >
                 <Zap className="w-3.5 h-3.5 mr-2 text-yellow-400" />
-                Aggiorna V6 (API)
+                Aggiorna V6 (Light)
              </button>
              
              <div className={`flex items-center px-3 py-1.5 rounded-full border text-xs font-bold uppercase tracking-wide ml-2 ${
@@ -497,14 +455,14 @@ async function startBaileys() {
                         Step 1: Installa Server V6.0
                     </h3>
                     <p className="text-slate-400 text-sm mb-6 max-w-xl">
-                        Versione <strong>6.0 API EDITION</strong>. Contiene endpoint per aggiornamento remoto. Cancella il vecchio server.js e carica questo.
+                        Versione <strong>6.0 LIGHTWEIGHT</strong>. Riduce il consumo di memoria e risolve l'errore "EAGAIN".
+                        <br/><span className="text-yellow-400 text-xs">⚠️ Cancella la cartella node_modules prima di caricare.</span>
                     </p>
 
                     <div className="flex flex-col sm:flex-row gap-4 relative z-10">
                         <button 
                             onClick={generateServerJs}
-                            disabled={!localConfig.apiKey}
-                            className={`flex-1 flex items-center justify-center p-3 rounded-lg border border-slate-700 hover:bg-slate-800 transition-colors ${!localConfig.apiKey ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            className={`flex-1 flex items-center justify-center p-3 rounded-lg border border-slate-700 hover:bg-slate-800 transition-colors`}
                         >
                             <FileCode className="w-5 h-5 mr-3 text-blue-400" />
                             <div className="text-left">
@@ -534,7 +492,7 @@ async function startBaileys() {
                     </h3>
                     <p className="text-sm text-slate-500 mb-4">
                         Incolla qui l'URL del tuo server FastComet (es. <code>https://app.miosito.com</code>). 
-                        Questo permette alla dashboard di inviare le modifiche al bot in tempo reale.
+                        Questo permette alla dashboard di recuperare il QR Code.
                     </p>
                     
                     <div className="flex gap-2">
@@ -561,31 +519,6 @@ async function startBaileys() {
             {/* Right Column: Settings & Key */}
             <div className="space-y-6">
                 
-                {/* API Key Section */}
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 relative overflow-hidden">
-                    <h3 className="font-bold text-slate-900 mb-2 flex items-center">
-                        <Key className="w-4 h-4 mr-2 text-[#00a884]" />
-                        Licenza & API Key
-                    </h3>
-                    <div className="mb-4">
-                        <div className="relative">
-                            <input
-                                type={showApiKey ? "text" : "password"}
-                                value={localConfig.apiKey || ''}
-                                onChange={(e) => handleConfigChange('apiKey', e.target.value)}
-                                placeholder="Incolla qui la tua API Key..."
-                                className={`w-full pl-3 pr-10 py-2.5 text-sm border rounded-lg outline-none focus:ring-2 focus:ring-[#00a884] transition-all ${!localConfig.apiKey ? 'border-red-300 bg-red-50' : 'border-slate-300 bg-white'}`}
-                            />
-                            <button 
-                                onClick={() => setShowApiKey(!showApiKey)}
-                                className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600"
-                            >
-                                {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
                 {/* AI Params */}
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                    <h3 className="font-bold text-slate-900 mb-4">Parametri Comportamento</h3>
@@ -661,8 +594,8 @@ async function startBaileys() {
                         <Terminal className="w-6 h-6 text-white" />
                      </div>
                      <div>
-                        <h2 className="text-xl font-bold">Aggiornamento V6.0 (API)</h2>
-                        <p className="text-slate-300 text-sm">Abilita il controllo remoto</p>
+                        <h2 className="text-xl font-bold">Aggiornamento V6.0 (Light)</h2>
+                        <p className="text-slate-300 text-sm">Fix "npm error code EAGAIN"</p>
                      </div>
                   </div>
                   <button onClick={() => setShowDeployGuide(false)} className="bg-white/10 hover:bg-white/20 p-2 rounded-full transition-colors">
@@ -674,18 +607,18 @@ async function startBaileys() {
                  <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-6 text-sm text-blue-800 flex items-start">
                     <Globe className="w-5 h-5 mr-3 shrink-0 mt-0.5" />
                     <p>
-                        <strong>PERCHÉ AGGIORNARE?</strong> <br/>
-                        La V6.0 abilita l'endpoint <code>/api/update-config</code>. Senza questo file, il tasto "Aggiorna Configurazione" della dashboard darà errore perché il server non sa come ricevere i dati.
+                        <strong>IMPORTANTE:</strong> <br/>
+                        Ho rimosso tutte le dipendenze inutili dal package.json. Questo risolverà il problema di memoria su FastComet.
                     </p>
                  </div>
 
-                 <h3 className="font-bold text-slate-900 mb-4">Procedura di Aggiornamento:</h3>
+                 <h3 className="font-bold text-slate-900 mb-4">Procedura di Ripristino:</h3>
                  <ol className="list-decimal list-inside space-y-4 text-slate-600 ml-2 text-sm">
-                    <li>Scarica il nuovo file <strong>server.js (V6.0)</strong> dal tasto a sinistra.</li>
-                    <li>Accedi al File Manager del tuo hosting (FastComet).</li>
-                    <li>Sovrascrivi il vecchio file <code>server.js</code> con quello nuovo.</li>
+                    <li>Scarica i 2 nuovi file (server.js e package.json).</li>
+                    <li>Accedi al File Manager di FastComet.</li>
+                    <li><strong>Cancella la cartella <code>node_modules</code> esistente.</strong> (Fondamentale!)</li>
+                    <li>Carica i nuovi file sovrascrivendo i vecchi.</li>
                     <li>Riavvia l'applicazione Node.js dal pannello di controllo.</li>
-                    <li>Copia l'URL del tuo sito (es. <code>https://app.miosito.com</code>) e incollalo nel campo "Step 2" qui nella dashboard.</li>
                  </ol>
               </div>
               

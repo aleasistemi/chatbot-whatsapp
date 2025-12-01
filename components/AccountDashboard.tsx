@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { BotAccount, MAX_ACCOUNTS } from '../types';
-import { Plus, QrCode, Smartphone, Edit3, Server, Globe, Activity, Power, Wifi, CloudCheck, ShieldCheck, X, Terminal, AlertTriangle, MonitorPlay, ExternalLink, Key } from 'lucide-react';
+import { Plus, QrCode, Smartphone, Edit3, Server, Globe, Activity, Power, Wifi, CloudCheck, ShieldCheck, X, Terminal, AlertTriangle, MonitorPlay, ExternalLink, Key, Loader2, RefreshCw } from 'lucide-react';
 
 interface AccountDashboardProps {
   accounts: BotAccount[];
@@ -24,6 +24,11 @@ export const AccountDashboard: React.FC<AccountDashboardProps> = ({
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [serverUrl, setServerUrl] = useState('');
   
+  // Real QR Polling State
+  const [remoteQr, setRemoteQr] = useState<string | null>(null);
+  const [remoteStatus, setRemoteStatus] = useState<string>('CONNECTING');
+  const [pollingInterval, setPollingInterval] = useState<ReturnType<typeof setInterval> | null>(null);
+  
   const [newName, setNewName] = useState('');
   const [newPhone, setNewPhone] = useState('');
   const [scanProgress, setScanProgress] = useState(0);
@@ -36,6 +41,51 @@ export const AccountDashboard: React.FC<AccountDashboardProps> = ({
     }, 3000);
     return () => clearInterval(timer);
   }, []);
+
+  // Poll Remote Server for QR Logic
+  useEffect(() => {
+    if (connectionStep === 'production' && serverUrl && selectedAccountId) {
+        // Start polling
+        const poll = setInterval(async () => {
+            try {
+                const cleanUrl = serverUrl.replace(/\/$/, "");
+                const res = await fetch(`${cleanUrl}/api/qr`);
+                if(res.ok) {
+                    const data = await res.json();
+                    setRemoteQr(data.qr || null);
+                    setRemoteStatus(data.status);
+                    
+                    if (data.status === 'CONNECTED') {
+                        // Auto-complete connection if server says connected
+                        const acc = accounts.find(a => a.id === selectedAccountId);
+                        if(acc && acc.status !== 'connected') {
+                             onUpdate({ 
+                                ...acc, 
+                                status: 'connected', 
+                                serverStatus: 'online', 
+                                lastActive: new Date() 
+                            });
+                            // Optional: Close modal automatically or show success state
+                            // setConnectionStep('none');
+                        }
+                    }
+                }
+            } catch(e) {
+                console.error("Polling error", e);
+                setRemoteStatus('ERROR');
+            }
+        }, 2000);
+        setPollingInterval(poll);
+    } else {
+        if(pollingInterval) clearInterval(pollingInterval);
+        setRemoteQr(null);
+    }
+    
+    return () => {
+        if(pollingInterval) clearInterval(pollingInterval);
+    };
+  }, [connectionStep, serverUrl, selectedAccountId]);
+
 
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -355,7 +405,7 @@ export const AccountDashboard: React.FC<AccountDashboardProps> = ({
                             Genera istanza cloud e collega il numero reale tramite QR Code. Funziona 24/7.
                         </p>
                         <div className="flex items-center text-purple-700 font-bold text-sm">
-                            Apri QR Server V5.0 <Globe className="w-4 h-4 ml-2" />
+                            Avvia Link V6.0 <Globe className="w-4 h-4 ml-2" />
                         </div>
                     </button>
 
@@ -389,60 +439,85 @@ export const AccountDashboard: React.FC<AccountDashboardProps> = ({
                 <div className="bg-[#00a884] p-4 flex justify-between items-center text-white">
                      <h2 className="text-lg font-bold flex items-center">
                          <Terminal className="w-5 h-5 mr-2" />
-                         Collega WhatsApp
+                         Aggiungi Profilo WhatsApp
                      </h2>
                      <button onClick={() => setConnectionStep('none')} className="text-white/80 hover:text-white"><X className="w-5 h-5"/></button>
                 </div>
                 
                 {/* PlanifyX Style Card Body */}
                 <div className="p-6 bg-slate-50">
-                    <div className="py-2">
-                        
-                        {/* Instance ID Box */}
-                        <div className="border border-gray-200 rounded-xl p-5 mb-4 bg-white shadow-sm">
-                            <div className="text-lg font-semibold text-slate-800 flex items-center mb-1">
-                                <Key className="w-5 h-5 mr-2 text-slate-400" /> 
-                                ID istanza: <span className="text-emerald-600 font-mono ml-2">{currentAccount.instanceId}</span>
-                            </div>
-                            <div className="text-slate-500 text-sm">Scansiona il codice QR sulla tua app Whatsapp</div>
-                        </div>
-
-                        {/* QR Code Container */}
-                        <div className="flex justify-center my-6 bg-white p-4 rounded-xl border border-gray-200 shadow-sm relative">
-                            {/* Realistic QR Placeholder (Static Base64 from User request shortened/replaced for cleaner code but same visual style) */}
-                             <img 
-                                className="w-[280px] h-[280px] object-contain mix-blend-multiply opacity-90" 
-                                src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=whatsapp-auth-simulation-v5"
-                                alt="WhatsApp QR Code" 
-                             />
-                             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                <div className="w-12 h-12 bg-[#00a884] p-2 rounded-full shadow-lg">
-                                    <Smartphone className="w-full h-full text-white" />
+                    
+                    {!serverUrl ? (
+                         <div className="bg-amber-50 border border-amber-200 p-4 rounded-lg text-amber-800 text-sm mb-4">
+                             <h4 className="font-bold flex items-center"><AlertTriangle className="w-4 h-4 mr-2"/> URL Server Mancante</h4>
+                             <p className="mt-1">Non hai configurato l'URL del server nello step 2. La dashboard non può recuperare il QR Code.</p>
+                             <button onClick={() => onSelect(currentAccount.id)} className="mt-2 text-amber-900 underline font-bold">Vai a Configurazione</button>
+                         </div>
+                    ) : (
+                        <div className="py-2">
+                            {/* Instance ID Box */}
+                            <div className="border border-gray-200 rounded-xl p-5 mb-4 bg-white shadow-sm">
+                                <div className="text-lg font-semibold text-slate-800 flex items-center mb-1">
+                                    <Key className="w-5 h-5 mr-2 text-slate-400" /> 
+                                    ID istanza: <span className="text-emerald-600 font-mono ml-2">{currentAccount.instanceId}</span>
                                 </div>
-                             </div>
+                                <div className="text-slate-500 text-sm">Scansiona il codice QR sulla tua app Whatsapp</div>
+                            </div>
+
+                            {/* QR Code Container */}
+                            <div className="flex justify-center my-6 bg-white p-4 rounded-xl border border-gray-200 shadow-sm relative min-h-[300px] items-center">
+                                {remoteStatus === 'CONNECTED' ? (
+                                    <div className="flex flex-col items-center justify-center text-emerald-600">
+                                        <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mb-4">
+                                            <CloudCheck className="w-10 h-10" />
+                                        </div>
+                                        <h3 className="font-bold text-lg">Dispositivo Connesso!</h3>
+                                    </div>
+                                ) : remoteQr ? (
+                                    <img 
+                                        className="w-[280px] h-[280px] object-contain mix-blend-multiply opacity-90 animate-in zoom-in duration-300" 
+                                        src={remoteQr}
+                                        alt="WhatsApp QR Code" 
+                                    />
+                                ) : (
+                                    <div className="flex flex-col items-center text-slate-400">
+                                        {remoteStatus === 'ERROR' ? (
+                                            <div className="text-red-500 flex flex-col items-center">
+                                                <AlertTriangle className="w-10 h-10 mb-2" />
+                                                <p>Errore connessione Server</p>
+                                                <p className="text-xs text-slate-400 mt-1">Verifica che server.js sia avviato</p>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <Loader2 className="w-10 h-10 animate-spin mb-4 text-slate-300" />
+                                                <p>In attesa del QR Code dal server...</p>
+                                            </>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="text-center text-xs text-slate-400">
+                                Status: <span className="font-mono font-bold text-slate-600">{remoteStatus}</span>
+                            </div>
+
+                            {/* Simulation Button for "Done" */}
+                            <button 
+                                onClick={() => {
+                                    onUpdate({ 
+                                        ...currentAccount, 
+                                        status: 'connected', 
+                                        serverStatus: 'online', 
+                                        lastActive: new Date() 
+                                    });
+                                    setConnectionStep('none');
+                                }}
+                                className="mt-6 w-full py-3 bg-[#00a884] hover:bg-[#008f6f] text-white font-bold rounded-lg shadow transition-colors"
+                            >
+                                {remoteStatus === 'CONNECTED' ? 'Chiudi e Completa' : 'Forza Stato Connesso'}
+                            </button>
                         </div>
-
-                        <div className="text-center text-xs text-slate-400">
-                             Server FastComet V5.0 • Waiting for device...
-                        </div>
-
-                        {/* Simulation Button for "Done" */}
-                        <button 
-                            onClick={() => {
-                                onUpdate({ 
-                                    ...currentAccount, 
-                                    status: 'connected', 
-                                    serverStatus: 'online', 
-                                    lastActive: new Date() 
-                                });
-                                setConnectionStep('none');
-                            }}
-                            className="mt-6 w-full py-3 bg-[#00a884] hover:bg-[#008f6f] text-white font-bold rounded-lg shadow transition-colors"
-                        >
-                            Ho Scansionato (Simula Connessione)
-                        </button>
-
-                    </div>
+                    )}
                 </div>
              </div>
           </div>

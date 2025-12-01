@@ -99,8 +99,7 @@ const App: React.FC = () => {
       avatarColor: ['bg-blue-600', 'bg-purple-600', 'bg-emerald-600', 'bg-orange-600', 'bg-pink-600'][accounts.length % 5],
       config: {
         systemInstruction: DEFAULT_INSTRUCTION,
-        temperature: 0.7,
-        apiKey: '' 
+        temperature: 0.7
       }
     };
     setAccounts([...accounts, newAccount]);

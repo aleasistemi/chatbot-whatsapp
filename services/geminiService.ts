@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Chat } from "@google/genai";
 import { BotConfig } from "../types";
 
@@ -10,14 +11,8 @@ let currentConfig: BotConfig | null = null;
 export const initChatSession = (config: BotConfig) => {
   currentConfig = config;
   
-  if (!config.apiKey) {
-    // Session cannot start without key, wait for user input
-    chatSession = null;
-    return;
-  }
-  
   try {
-    const ai = new GoogleGenAI({ apiKey: config.apiKey });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
     chatSession = ai.chats.create({
       model: 'gemini-2.5-flash',
@@ -36,16 +31,13 @@ export const initChatSession = (config: BotConfig) => {
  * Sends a message to the Gemini model and returns the response text.
  */
 export const sendMessageToBot = async (message: string): Promise<string> => {
-  // Check specifically for missing configuration first
-  if (!currentConfig?.apiKey) {
-    return "⚠️ CONFIGURAZIONE MANCANTE: Inserisci la tua API Key di Google Gemini nelle impostazioni 'Configura Script' per attivare l'intelligenza artificiale.";
-  }
-
   if (!chatSession) {
     // Try to re-init if config exists but session is null (edge case)
-    initChatSession(currentConfig);
+    if (currentConfig) {
+        initChatSession(currentConfig);
+    }
     if (!chatSession) {
-         return "Errore di inizializzazione. Verifica che la chiave API sia valida.";
+         return "Errore di inizializzazione. Verifica la configurazione e la chiave API.";
     }
   }
 
@@ -54,6 +46,6 @@ export const sendMessageToBot = async (message: string): Promise<string> => {
     return result.text || "";
   } catch (error) {
     console.error("Gemini API Error:", error);
-    return "Mi dispiace, si è verificato un errore con il servizio AI. Verifica la tua API Key o il saldo del tuo account Google.";
+    return "Mi dispiace, si è verificato un errore con il servizio AI.";
   }
 };

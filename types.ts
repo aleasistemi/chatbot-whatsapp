@@ -1,4 +1,5 @@
 
+
 export enum Sender {
   USER = 'user',
   BOT = 'bot'
@@ -15,7 +16,6 @@ export interface Message {
 export interface BotConfig {
   systemInstruction: string;
   temperature: number;
-  apiKey?: string; // Client's own API Key
 }
 
 export type ConnectionStatus = 'disconnected' | 'scanning' | 'connected';
