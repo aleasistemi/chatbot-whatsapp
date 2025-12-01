@@ -96,6 +96,13 @@ export const AccountDashboard: React.FC<AccountDashboardProps> = ({
   };
 
   const initConnectFlow = (id: string) => {
+      // Check if another account is already connected (Single session restriction for Stability)
+      const connectedAccount = accounts.find(a => a.status === 'connected');
+      if (connectedAccount && connectedAccount.id !== id) {
+          alert(`Hai già un account connesso (${connectedAccount.name}).\nDisconnettilo prima di collegarne uno nuovo.`);
+          return;
+      }
+
       setSelectedAccountId(id);
       // Retrieve saved URL if exists
       const savedUrl = localStorage.getItem(`server_url_${id}`);
@@ -131,10 +138,23 @@ export const AccountDashboard: React.FC<AccountDashboardProps> = ({
     }, 200);
   };
 
-  const disconnect = (account: BotAccount) => {
-    if (confirm("Vuoi disconnettere questo numero? Il server cloud smetterà di ricevere messaggi.")) {
-      onUpdate({ ...account, status: 'disconnected', serverStatus: 'offline', isActive: false });
+  const disconnect = async (account: BotAccount) => {
+    if (!confirm("Vuoi disconnettere questo numero? Il server disconnetterà WhatsApp e cancellerà la sessione.")) return;
+    
+    // 1. Try Remote Logout First
+    const savedUrl = localStorage.getItem(`server_url_${account.id}`);
+    if (savedUrl) {
+        try {
+            const cleanUrl = savedUrl.replace(/\/$/, "");
+            await fetch(`${cleanUrl}/api/logout`, { method: 'POST' });
+        } catch(e) {
+            console.error("Remote logout failed", e);
+            alert("Impossibile contattare il server per il logout remoto. Disconnessione solo locale.");
+        }
     }
+
+    // 2. Update Local State
+    onUpdate({ ...account, status: 'disconnected', serverStatus: 'offline', isActive: false });
   };
 
   const activeCount = accounts.filter(a => a.status === 'connected').length;
@@ -242,7 +262,7 @@ export const AccountDashboard: React.FC<AccountDashboardProps> = ({
                       : 'bg-red-50 text-red-700 border-red-200'
                   }`}>
                     <div className={`w-2 h-2 rounded-full ${acc.status === 'connected' ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}></div>
-                    <span>{acc.status === 'connected' ? 'CLOUD CONNECTED' : 'OFFLINE'}</span>
+                    <span>{acc.status === 'connected' ? (acc.isActive ? 'CONNECTED' : 'PAUSED') : 'OFFLINE'}</span>
                   </div>
                 </div>
 
@@ -288,14 +308,14 @@ export const AccountDashboard: React.FC<AccountDashboardProps> = ({
                   )}
                   
                   <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                     <span className="text-xs text-slate-400">Node: v12.0</span>
+                     <span className="text-xs text-slate-400">Node: v14.0 Control</span>
                      <div className="flex space-x-2">
                         {acc.status === 'connected' && (
-                            <button onClick={() => disconnect(acc)} title="Disconnetti Sessione Remota" className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors">
+                            <button onClick={() => disconnect(acc)} title="Disconnetti Sessione Remota (Logout)" className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors">
                                 <Wifi className="w-4 h-4" />
                             </button>
                         )}
-                        <button onClick={() => { if(confirm('Eliminare definitivamente questo nodo dal server?')) onDelete(acc.id); }} title="Elimina Nodo" className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors">
+                        <button onClick={() => { if(confirm('Eliminare definitivamente questo nodo?')) onDelete(acc.id); }} title="Elimina Nodo" className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors">
                             <Power className="w-4 h-4" />
                         </button>
                      </div>
@@ -398,9 +418,9 @@ export const AccountDashboard: React.FC<AccountDashboardProps> = ({
                         <div className="mb-4 bg-pink-100 w-12 h-12 rounded-xl flex items-center justify-center text-pink-600 group-hover:scale-110 transition-transform">
                             <Server className="w-6 h-6" />
                         </div>
-                        <h3 className="text-lg font-bold text-slate-900 mb-2">Produzione V12</h3>
+                        <h3 className="text-lg font-bold text-slate-900 mb-2">Produzione V14</h3>
                         <p className="text-sm text-slate-500 mb-4 flex-1">
-                            Collega numero reale tramite Render.com. Include fix per crash di memoria.
+                            Collega numero reale tramite Render.com. Include Controllo Remoto e Logout.
                         </p>
                         <div className="flex items-center text-pink-700 font-bold text-sm">
                             Avvia Link <Globe className="w-4 h-4 ml-2" />
