@@ -17,7 +17,6 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
   const [serverUrl, setServerUrl] = useState(localStorage.getItem(`server_url_${account.id}`) || '');
   const [isDirty, setIsDirty] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [showDeployGuide, setShowDeployGuide] = useState(false);
   const [showRenderGuide, setShowRenderGuide] = useState(false);
   
   // Real deployment states
@@ -114,7 +113,7 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
     }
   };
 
-  // --- GENERATION LOGIC FOR REAL SERVER CODE (BAILEYS EDITION V11 - RENDER STABLE) ---
+  // --- GENERATION LOGIC FOR REAL SERVER CODE (BAILEYS EDITION V12 - RENDER OPTIMIZED) ---
   const downloadFile = (filename: string, content: string) => {
     const element = document.createElement('a');
     const file = new Blob([content], {type: 'text/plain'});
@@ -125,20 +124,12 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
     document.body.removeChild(element);
   };
 
-  const generateNpmrc = () => {
-    // V11: Strict Production
-    const content = `production=true
-registry=https://registry.npmjs.org/
-`;
-    downloadFile('.npmrc', content);
-  };
-
   const generatePackageJson = () => {
-    // V11: RENDER OPTIMIZED
+    // V12: RENDER OPTIMIZED
     const pkg = {
-      "name": "whatsapp-bot-v11-render",
-      "version": "11.0.0",
-      "description": "Bot WhatsApp V11 (Render Stable)",
+      "name": "whatsapp-bot-v12-render",
+      "version": "12.0.0",
+      "description": "Bot WhatsApp V12 (Render Memory Fix)",
       "main": "server.js",
       "scripts": {
         "start": "node server.js"
@@ -163,8 +154,8 @@ registry=https://registry.npmjs.org/
 
   const generateServerJs = () => {
     const content = `/**
- * BOT WA V11.0 - RENDER STABLE EDITION
- * Fixes: Deprecated QR flags, Linux Browser Signature, Error Logging
+ * BOT WA V12.0 - RENDER OPTIMIZED EDITION
+ * Fixes: Memory Leak (syncFullHistory), Deprecated Flags, Browser Signature
  */
 
 const http = require('http');
@@ -177,7 +168,7 @@ const path = require('path');
 
 const PORT = process.env.PORT || 3000;
 const CONFIG_FILE = path.join(__dirname, 'bot_config.json');
-const AUTH_DIR = path.join(__dirname, 'auth_info_v11');
+const AUTH_DIR = path.join(__dirname, 'auth_info_v12');
 
 // --- AUTO-CLEANUP LEGACY ---
 try {
@@ -205,7 +196,7 @@ function saveConfig() {
 
 // Global State
 let qrCodeDataUrl = '';
-let statusMessage = 'Avvio sistema...';
+let statusMessage = 'Avvio sistema V12...';
 let isConnected = false;
 let logs = [];
 let ai = null;
@@ -224,7 +215,7 @@ function initAI() {
             addLog("AI: Pronta");
         } catch(e) { addLog("AI Errore: " + e.message); }
     } else {
-        addLog("AI: Manca API Key (Verifica Variabili Ambiente)");
+        addLog("AI: Manca API Key (Verifica Env Var su Render)");
     }
 }
 initAI();
@@ -267,12 +258,12 @@ const server = http.createServer((req, res) => {
 
     // Status Page
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end(\`<html><body style="font-family:sans-serif;background:#1a1a1a;color:#fff;text-align:center;padding:50px;">
-        <div style="background:#2d2d2d;padding:30px;border-radius:15px;max-width:600px;margin:auto;border:1px solid #333;box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-            <h1 style="color:#22c55e;">Bot V11 Render Stable</h1>
-            <p>Engine: <strong>Baileys (Linux Optimized)</strong></p>
+    res.end(\`<html><body style="font-family:sans-serif;background:#0f172a;color:#fff;text-align:center;padding:50px;">
+        <div style="background:#1e293b;padding:30px;border-radius:15px;max-width:600px;margin:auto;border:1px solid #334155;box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+            <h1 style="color:#34d399;">Bot V12 Render Optimized</h1>
+            <p>Engine: <strong>Baileys (Low Memory Mode)</strong></p>
             <p>Status: <strong>\${isConnected ? '✅ CONNESSO' : '⚠️ ' + statusMessage}</strong></p>
-            <div style="background:#000;padding:15px;border-radius:8px;font-family:monospace;text-align:left;font-size:12px;color:#00ff00;max-height:300px;overflow-y:auto;">
+            <div style="background:#000;padding:15px;border-radius:8px;font-family:monospace;text-align:left;font-size:12px;color:#34d399;max-height:300px;overflow-y:auto;">
                \${logs.join('<br>')}
             </div>
         </div>
@@ -286,21 +277,27 @@ server.listen(PORT, () => {
 
 // 2. WHATSAPP LOGIC
 async function startBaileys() {
-    addLog("Avvio Motore WhatsApp (V11)...");
+    addLog("Avvio Motore WhatsApp (V12)...");
     
     try {
         const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
         
         const sock = makeWASocket({
             auth: state,
-            // DEPRECATED FLAG REMOVED
-            logger: pino({ level: 'silent' }), // Silent console, verbose via Web API
-            browser: ["Ubuntu", "Chrome", "20.0.04"], // Linux signature for Render
+            // LOGGING & BROWSER
+            logger: pino({ level: 'fatal' }), // Minimized logging
+            browser: ["Mac OS", "Chrome", "10.15.7"], // Stable Signature for Render
+            
+            // TIMEOUTS & RETRIES
             connectTimeoutMs: 60000,
             defaultQueryTimeoutMs: 60000,
-            keepAliveIntervalMs: 10000,
-            emitOwnEvents: true,
-            retryRequestDelayMs: 250
+            keepAliveIntervalMs: 30000,
+            retryRequestDelayMs: 500,
+            
+            // MEMORY OPTIMIZATION (CRITICAL FOR RENDER FREE)
+            syncFullHistory: false, // Prevents OOM crashes on initial sync
+            printQRInTerminal: false, // Explicitly disabled
+            generateHighQualityLinkPreview: true
         });
 
         sock.ev.on('connection.update', (update) => {
@@ -311,7 +308,7 @@ async function startBaileys() {
                 qrcode.toDataURL(qr, (err, url) => {
                     if(!err) qrCodeDataUrl = url;
                 });
-                addLog("Generazione QR Code...");
+                addLog("Nuovo QR Code generato");
             }
 
             if(connection === 'close') {
@@ -319,13 +316,13 @@ async function startBaileys() {
                 const statusCode = (lastDisconnect?.error)?.output?.statusCode;
                 const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
                 
-                const errReason = lastDisconnect?.error ? JSON.stringify(lastDisconnect.error) : 'Unknown';
-                addLog(\`Disconnesso (Code: \${statusCode}). Riconnessione: \${shouldReconnect}\`);
+                const errReason = lastDisconnect?.error ? lastDisconnect.error.message : 'Unknown';
+                addLog(\`Disconnesso (\${errReason}). Riconnessione: \${shouldReconnect}\`);
                 
                 if(shouldReconnect) {
-                    setTimeout(startBaileys, 5000);
+                    setTimeout(startBaileys, 3000);
                 } else {
-                    addLog("Sessione Scaduta o Logout. Pulisco sessione...");
+                    addLog("Sessione Invalida. Reset...");
                     if(fs.existsSync(AUTH_DIR)) fs.rmSync(AUTH_DIR, { recursive: true, force: true });
                     setTimeout(startBaileys, 3000);
                 }
@@ -333,7 +330,7 @@ async function startBaileys() {
                 isConnected = true;
                 qrCodeDataUrl = '';
                 statusMessage = "CONNESSO";
-                addLog(">>> DISPOSITIVO CONNESSO CON SUCCESSO <<<");
+                addLog(">>> DISPOSITIVO CONNESSO (Low Memory Mode) <<<");
             }
         });
 
@@ -348,12 +345,13 @@ async function startBaileys() {
                 const textBody = msg.message.conversation || msg.message.extendedTextMessage?.text;
                 
                 if(!textBody) continue;
-                addLog(\`Msg da \${remoteJid.split('@')[0]}\`);
+                addLog(\`Msg: \${textBody.substring(0, 20)}...\`);
 
                 try {
                     if(ai) {
+                        await sock.readMessages([msg.key]);
                         await sock.sendPresenceUpdate('composing', remoteJid);
-                        await delay(2000); 
+                        await delay(1500); 
                         
                         const response = await ai.models.generateContent({
                             model: 'gemini-2.5-flash',
@@ -366,16 +364,16 @@ async function startBaileys() {
                         
                         const replyText = response.text;
                         await sock.sendMessage(remoteJid, { text: replyText }, { quoted: msg });
-                        addLog("Risposta AI inviata");
+                        addLog("Risposta inviata");
                     }
                 } catch (e) {
-                    addLog("Errore Generazione AI: " + e.message);
+                    addLog("Errore AI: " + e.message);
                 }
             }
         });
 
     } catch (e) {
-        addLog("CRASH AVVIO: " + e.message);
+        addLog("CRASH: " + e.message);
         setTimeout(startBaileys, 5000);
     }
 }
@@ -439,16 +437,8 @@ async function startBaileys() {
           
           <div className="flex items-center space-x-3">
              <button
-                onClick={() => setShowDeployGuide(true)}
-                className="flex items-center px-3 py-2 bg-white text-slate-600 border border-slate-200 rounded-lg text-xs font-bold hover:bg-slate-50 transition-colors shadow-sm"
-             >
-                <Settings className="w-3.5 h-3.5 mr-2" />
-                Guida FastComet
-             </button>
-
-             <button
                 onClick={() => setShowRenderGuide(true)}
-                className="flex items-center px-3 py-2 bg-slate-800 text-white rounded-lg text-xs font-bold hover:bg-slate-900 transition-colors shadow-sm"
+                className="flex items-center px-3 py-2 bg-slate-900 text-white rounded-lg text-xs font-bold hover:bg-slate-800 transition-colors shadow-sm"
              >
                 <Cloud className="w-3.5 h-3.5 mr-2" />
                 Guida Render.com
@@ -491,41 +481,33 @@ async function startBaileys() {
                 </div>
 
                 {/* Export Real Bot Section */}
-                <div className="bg-slate-900 rounded-xl shadow-lg border border-slate-800 p-6 text-white relative overflow-hidden">
+                <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl shadow-lg border border-slate-700 p-6 text-white relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-8 opacity-10">
                         <Github className="w-32 h-32" />
                     </div>
                     <h3 className="text-lg font-bold mb-2 flex items-center text-emerald-400">
                         <Download className="w-5 h-5 mr-2" />
-                        Download Server V11 (Render Fix)
+                        Download Server V12 (Render Fix)
                     </h3>
                     <p className="text-slate-300 text-sm mb-6 max-w-xl">
-                        Usa questi file aggiornati. Risolvono il problema del "Boot Loop" su Render e il QR che non appare.
+                        Versione ottimizzata per Render.com (Free Tier). Risolve i crash di memoria e il QR Code loop.
                     </p>
 
                     <div className="flex flex-col sm:flex-row gap-3 relative z-10">
                         <button 
                             onClick={generateServerJs}
-                            className={`flex-1 flex items-center justify-center p-3 rounded-lg border border-slate-700 bg-emerald-900/30 hover:bg-emerald-900/50 transition-colors border-emerald-800`}
+                            className={`flex-1 flex items-center justify-center p-3 rounded-lg border border-slate-600 bg-emerald-900/40 hover:bg-emerald-900/60 transition-colors border-emerald-800/50`}
                         >
                             <FileCode className="w-4 h-4 mr-2 text-emerald-400" />
-                            <span className="font-bold text-sm">server.js (V11)</span>
+                            <span className="font-bold text-sm">server.js (V12)</span>
                         </button>
                         
                         <button 
                              onClick={generatePackageJson}
-                             className="flex-1 flex items-center justify-center p-3 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 transition-colors"
+                             className="flex-1 flex items-center justify-center p-3 rounded-lg border border-slate-600 bg-slate-700 hover:bg-slate-600 transition-colors"
                         >
                             <FileJson className="w-4 h-4 mr-2 text-yellow-400" />
                             <span className="font-bold text-sm">package.json</span>
-                        </button>
-
-                        <button 
-                             onClick={generateNpmrc}
-                             className="flex-1 flex items-center justify-center p-3 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 transition-colors"
-                        >
-                            <Settings className="w-4 h-4 mr-2 text-slate-400" />
-                            <span className="font-bold text-sm">.npmrc</span>
                         </button>
                     </div>
                 </div>
@@ -537,7 +519,7 @@ async function startBaileys() {
                         Connetti Dashboard
                     </h3>
                     <p className="text-sm text-slate-500 mb-4">
-                        Inserisci qui l'URL fornito da FastComet o Render (es. <code>https://my-bot.onrender.com</code>). 
+                        Inserisci qui l'URL fornito da Render (es. <code>https://my-bot.onrender.com</code>). 
                     </p>
                     
                     <div className="flex gap-2">
@@ -629,50 +611,6 @@ async function startBaileys() {
             </div>
         </div>
 
-        {/* Modal Guida FastComet V10 */}
-        {showDeployGuide && (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-0 overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]">
-              <div className="bg-orange-900 p-6 text-white flex justify-between items-center shrink-0">
-                  <div className="flex items-center space-x-3">
-                     <div className="bg-white/20 p-2 rounded-lg">
-                        <Terminal className="w-6 h-6 text-white" />
-                     </div>
-                     <div>
-                        <h2 className="text-xl font-bold">Guida FastComet V10</h2>
-                        <p className="text-orange-200 text-sm">Aggiramento blocco SSH/Git di cPanel</p>
-                     </div>
-                  </div>
-                  <button onClick={() => setShowDeployGuide(false)} className="bg-white/10 hover:bg-white/20 p-2 rounded-full transition-colors">
-                     <X className="w-5 h-5" />
-                  </button>
-              </div>
-              
-              <div className="p-8 overflow-y-auto">
-                 <ol className="list-decimal list-inside space-y-4 text-slate-600 ml-2 text-sm font-bold">
-                    <li>Scarica i 3 file dal pulsante nero.</li>
-                    <li className="text-red-600">CANCELLA TUTTO sul server (anche node_modules e file nascosti).</li>
-                    <li>Carica i 3 file.</li>
-                    <li>
-                        Setup Node.js App &rarr; <strong>Environment Variables</strong>:
-                        <br/><code>NODE_ENV</code> = <code>production</code> (Fondamentale!)
-                    </li>
-                    <li>Clicca <strong>Run NPM Install</strong>.</li>
-                 </ol>
-              </div>
-              
-              <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end">
-                 <button 
-                    onClick={() => setShowDeployGuide(false)}
-                    className="px-6 py-2 bg-slate-200 text-slate-800 rounded-lg font-bold hover:bg-slate-300 transition-colors"
-                 >
-                    Chiudi
-                 </button>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Modal Guida RENDER.COM */}
         {showRenderGuide && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -684,7 +622,7 @@ async function startBaileys() {
                      </div>
                      <div>
                         <h2 className="text-xl font-bold">Guida Render.com (Gratis)</h2>
-                        <p className="text-slate-300 text-sm">Alternativa consigliata a FastComet</p>
+                        <p className="text-slate-300 text-sm">Deploy Rapido e Sicuro</p>
                      </div>
                   </div>
                   <button onClick={() => setShowRenderGuide(false)} className="bg-white/10 hover:bg-white/20 p-2 rounded-full transition-colors">
@@ -693,13 +631,12 @@ async function startBaileys() {
               </div>
               
               <div className="p-8 overflow-y-auto space-y-4 text-sm text-slate-600">
-                 <p>Se FastComet continua a dare errori Git, usa Render. È gratuito e fatto apposta per Node.js.</p>
                  
                  <div className="bg-slate-100 p-4 rounded-lg border border-slate-200">
                     <h4 className="font-bold text-slate-800 mb-2">1. Prepara i file</h4>
                     <ul className="list-disc list-inside space-y-1">
-                        <li>Scarica <code>server.js</code> e <code>package.json</code> da qui.</li>
-                        <li>Crea un nuovo <strong>Repository GitHub</strong> (privato va bene).</li>
+                        <li>Scarica <code>server.js</code> (V12) e <code>package.json</code> da qui.</li>
+                        <li>Crea un nuovo <strong>Repository GitHub</strong>.</li>
                         <li>Carica questi 2 file nel repo.</li>
                     </ul>
                  </div>

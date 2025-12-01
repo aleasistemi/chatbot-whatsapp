@@ -172,7 +172,7 @@ export const AccountDashboard: React.FC<AccountDashboardProps> = ({
                 <div className="flex-1">
                    <h3 className="font-bold text-emerald-800 text-sm">Sessione Cloud Attiva</h3>
                    <p className="text-emerald-700/80 text-xs mt-0.5">
-                     Il servizio è in esecuzione sul server FastComet. 
+                     Il servizio è in esecuzione su Render.com. 
                      <strong> Puoi chiudere questa finestra o spegnere il PC.</strong> Il bot continuerà a rispondere.
                    </p>
                 </div>
@@ -288,7 +288,7 @@ export const AccountDashboard: React.FC<AccountDashboardProps> = ({
                   )}
                   
                   <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                     <span className="text-xs text-slate-400">Node: v8.0</span>
+                     <span className="text-xs text-slate-400">Node: v12.0</span>
                      <div className="flex space-x-2">
                         {acc.status === 'connected' && (
                             <button onClick={() => disconnect(acc)} title="Disconnetti Sessione Remota" className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors">
@@ -312,7 +312,7 @@ export const AccountDashboard: React.FC<AccountDashboardProps> = ({
                       <Server className="w-8 h-8 text-slate-300" />
                   </div>
                   <h3 className="text-lg font-medium text-slate-900">Nessun nodo attivo</h3>
-                  <p className="max-w-sm mt-1 mb-6">Inizia collegando il tuo primo numero WhatsApp per attivare il bot sul server FastComet.</p>
+                  <p className="max-w-sm mt-1 mb-6">Inizia collegando il tuo primo numero WhatsApp per attivare il bot sul server Render.</p>
                   <button 
                       onClick={() => setShowAddModal(true)}
                       className="px-6 py-2 bg-[#00a884] text-white rounded-lg font-medium hover:bg-[#008f6f]"
@@ -398,9 +398,9 @@ export const AccountDashboard: React.FC<AccountDashboardProps> = ({
                         <div className="mb-4 bg-pink-100 w-12 h-12 rounded-xl flex items-center justify-center text-pink-600 group-hover:scale-110 transition-transform">
                             <Server className="w-6 h-6" />
                         </div>
-                        <h3 className="text-lg font-bold text-slate-900 mb-2">Produzione V8.0</h3>
+                        <h3 className="text-lg font-bold text-slate-900 mb-2">Produzione V12</h3>
                         <p className="text-sm text-slate-500 mb-4 flex-1">
-                            Genera istanza cloud e collega il numero reale. Fix SSH/Git incluso.
+                            Collega numero reale tramite Render.com. Include fix per crash di memoria.
                         </p>
                         <div className="flex items-center text-pink-700 font-bold text-sm">
                             Avvia Link <Globe className="w-4 h-4 ml-2" />
