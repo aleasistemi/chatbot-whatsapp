@@ -114,7 +114,7 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
     }
   };
 
-  // --- GENERATION LOGIC FOR REAL SERVER CODE (BAILEYS EDITION V10 - UNIVERSAL) ---
+  // --- GENERATION LOGIC FOR REAL SERVER CODE (BAILEYS EDITION V11 - RENDER STABLE) ---
   const downloadFile = (filename: string, content: string) => {
     const element = document.createElement('a');
     const file = new Blob([content], {type: 'text/plain'});
@@ -126,23 +126,22 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
   };
 
   const generateNpmrc = () => {
-    // V10: Strict Production
+    // V11: Strict Production
     const content = `production=true
 registry=https://registry.npmjs.org/
 `;
     downloadFile('.npmrc', content);
   };
 
-  const generatePackageJson = (mode: 'fastcomet' | 'render') => {
-    // V10: UNIVERSAL PACKAGE JSON
+  const generatePackageJson = () => {
+    // V11: RENDER OPTIMIZED
     const pkg = {
-      "name": `whatsapp-bot-v10-${mode}`,
-      "version": "10.0.0",
-      "description": `Bot WhatsApp V10 (${mode})`,
+      "name": "whatsapp-bot-v11-render",
+      "version": "11.0.0",
+      "description": "Bot WhatsApp V11 (Render Stable)",
       "main": "server.js",
       "scripts": {
-        "start": "node server.js",
-        "build": "echo 'No build step'" // Useful for Render
+        "start": "node server.js"
       },
       "dependencies": {
         "@whiskeysockets/baileys": "^6.6.0",
@@ -151,7 +150,6 @@ registry=https://registry.npmjs.org/
         "pino": "^7.0.0"
       },
       "overrides": {
-        // Essential overrides for FastComet, harmless for Render
         "eslint-config": "0.0.0",
         "@whiskeysockets/eslint-config": "0.0.0",
         "linkifyjs": "^4.0.0"
@@ -165,7 +163,8 @@ registry=https://registry.npmjs.org/
 
   const generateServerJs = () => {
     const content = `/**
- * BOT WA V10.0 - UNIVERSAL EDITION (Render & FastComet)
+ * BOT WA V11.0 - RENDER STABLE EDITION
+ * Fixes: Deprecated QR flags, Linux Browser Signature, Error Logging
  */
 
 const http = require('http');
@@ -176,10 +175,11 @@ const pino = require('pino');
 const fs = require('fs');
 const path = require('path');
 
-const PORT = process.env.PORT || 3000; // Render uses PORT env var automatically
+const PORT = process.env.PORT || 3000;
 const CONFIG_FILE = path.join(__dirname, 'bot_config.json');
+const AUTH_DIR = path.join(__dirname, 'auth_info_v11');
 
-// --- AUTO-CLEANUP (Solo per FastComet legacy) ---
+// --- AUTO-CLEANUP LEGACY ---
 try {
     const oldSession = path.join(__dirname, '.wwebjs_auth');
     if (fs.existsSync(oldSession)) fs.rmSync(oldSession, { recursive: true, force: true });
@@ -229,7 +229,7 @@ function initAI() {
 }
 initAI();
 
-// 1. HTTP SERVER (Keep-Alive & API)
+// 1. HTTP SERVER
 const server = http.createServer((req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -265,13 +265,14 @@ const server = http.createServer((req, res) => {
         return;
     }
 
+    // Status Page
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end(\`<html><body style="font-family:sans-serif;background:#202020;color:#eee;text-align:center;padding:50px;">
-        <div style="background:#333;padding:30px;border-radius:15px;max-width:600px;margin:auto;border:1px solid #444;box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-            <h1 style="color:#00e676;">Bot V10 Universal</h1>
-            <p>Platform: <strong>Node.js (Render/FastComet)</strong></p>
+    res.end(\`<html><body style="font-family:sans-serif;background:#1a1a1a;color:#fff;text-align:center;padding:50px;">
+        <div style="background:#2d2d2d;padding:30px;border-radius:15px;max-width:600px;margin:auto;border:1px solid #333;box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+            <h1 style="color:#22c55e;">Bot V11 Render Stable</h1>
+            <p>Engine: <strong>Baileys (Linux Optimized)</strong></p>
             <p>Status: <strong>\${isConnected ? '✅ CONNESSO' : '⚠️ ' + statusMessage}</strong></p>
-            <div style="background:black;padding:15px;border-radius:8px;font-family:monospace;text-align:left;font-size:12px;color:#00ff00;max-height:300px;overflow-y:auto;">
+            <div style="background:#000;padding:15px;border-radius:8px;font-family:monospace;text-align:left;font-size:12px;color:#00ff00;max-height:300px;overflow-y:auto;">
                \${logs.join('<br>')}
             </div>
         </div>
@@ -285,80 +286,98 @@ server.listen(PORT, () => {
 
 // 2. WHATSAPP LOGIC
 async function startBaileys() {
-    addLog("Avvio Motore WhatsApp...");
-    // Render/Containers are ephemeral, so we use a standard auth folder. 
-    // On Render, this will be wiped on redeploy unless a Disk is attached, but keeps connection alive during run.
-    const { state, saveCreds } = await useMultiFileAuthState('auth_info_v10');
+    addLog("Avvio Motore WhatsApp (V11)...");
     
-    const sock = makeWASocket({
-        auth: state,
-        printQRInTerminal: true,
-        logger: pino({ level: 'silent' }),
-        browser: ["${account.name}", "UniversalBot", "10.0"],
-        connectTimeoutMs: 60000,
-        syncFullHistory: false
-    });
-
-    sock.ev.on('connection.update', (update) => {
-        const { connection, lastDisconnect, qr } = update;
+    try {
+        const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
         
-        if(qr) {
-            statusMessage = "SCANSIONA QR";
-            qrcode.toDataURL(qr, (err, url) => {
-                if(!err) qrCodeDataUrl = url;
-            });
-            addLog("Nuovo QR Generato");
-        }
+        const sock = makeWASocket({
+            auth: state,
+            // DEPRECATED FLAG REMOVED
+            logger: pino({ level: 'silent' }), // Silent console, verbose via Web API
+            browser: ["Ubuntu", "Chrome", "20.0.04"], // Linux signature for Render
+            connectTimeoutMs: 60000,
+            defaultQueryTimeoutMs: 60000,
+            keepAliveIntervalMs: 10000,
+            emitOwnEvents: true,
+            retryRequestDelayMs: 250
+        });
 
-        if(connection === 'close') {
-            isConnected = false;
-            const shouldReconnect = (lastDisconnect.error)?.output?.statusCode !== DisconnectReason.loggedOut;
-            addLog(\`Disconnesso. Riconnessione: \${shouldReconnect}\`);
-            if(shouldReconnect) setTimeout(startBaileys, 5000);
-        } else if(connection === 'open') {
-            isConnected = true;
-            qrCodeDataUrl = '';
-            statusMessage = "CONNESSO";
-            addLog(">>> DISPOSITIVO CONNESSO CON SUCCESSO <<<");
-        }
-    });
-
-    sock.ev.on('creds.update', saveCreds);
-
-    sock.ev.on('messages.upsert', async ({ messages, type }) => {
-        if(type !== 'notify') return;
-        for(const msg of messages) {
-            if(!msg.message || msg.key.fromMe) continue;
+        sock.ev.on('connection.update', (update) => {
+            const { connection, lastDisconnect, qr } = update;
             
-            const remoteJid = msg.key.remoteJid;
-            const textBody = msg.message.conversation || msg.message.extendedTextMessage?.text;
-            
-            if(!textBody) continue;
-            addLog(\`Msg da \${remoteJid.split('@')[0]}: \${textBody.substring(0,15)}...\`);
-
-            try {
-                if(ai) {
-                    await sock.sendPresenceUpdate('composing', remoteJid);
-                    await delay(1500); 
-                    
-                    const response = await ai.models.generateContent({
-                        model: 'gemini-2.5-flash',
-                        contents: textBody,
-                        config: { 
-                            systemInstruction: botConfig.systemInstruction,
-                            temperature: botConfig.temperature 
-                        }
-                    });
-                    
-                    const replyText = response.text;
-                    await sock.sendMessage(remoteJid, { text: replyText }, { quoted: msg });
-                    addLog("Risposta AI inviata");
-                }
-            } catch (e) {
-                addLog("Errore Generazione AI: " + e.message);
+            if(qr) {
+                statusMessage = "SCANSIONA QR";
+                qrcode.toDataURL(qr, (err, url) => {
+                    if(!err) qrCodeDataUrl = url;
+                });
+                addLog("Generazione QR Code...");
             }
-        }
-    });
+
+            if(connection === 'close') {
+                isConnected = false;
+                const statusCode = (lastDisconnect?.error)?.output?.statusCode;
+                const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+                
+                const errReason = lastDisconnect?.error ? JSON.stringify(lastDisconnect.error) : 'Unknown';
+                addLog(\`Disconnesso (Code: \${statusCode}). Riconnessione: \${shouldReconnect}\`);
+                
+                if(shouldReconnect) {
+                    setTimeout(startBaileys, 5000);
+                } else {
+                    addLog("Sessione Scaduta o Logout. Pulisco sessione...");
+                    if(fs.existsSync(AUTH_DIR)) fs.rmSync(AUTH_DIR, { recursive: true, force: true });
+                    setTimeout(startBaileys, 3000);
+                }
+            } else if(connection === 'open') {
+                isConnected = true;
+                qrCodeDataUrl = '';
+                statusMessage = "CONNESSO";
+                addLog(">>> DISPOSITIVO CONNESSO CON SUCCESSO <<<");
+            }
+        });
+
+        sock.ev.on('creds.update', saveCreds);
+
+        sock.ev.on('messages.upsert', async ({ messages, type }) => {
+            if(type !== 'notify') return;
+            for(const msg of messages) {
+                if(!msg.message || msg.key.fromMe) continue;
+                
+                const remoteJid = msg.key.remoteJid;
+                const textBody = msg.message.conversation || msg.message.extendedTextMessage?.text;
+                
+                if(!textBody) continue;
+                addLog(\`Msg da \${remoteJid.split('@')[0]}\`);
+
+                try {
+                    if(ai) {
+                        await sock.sendPresenceUpdate('composing', remoteJid);
+                        await delay(2000); 
+                        
+                        const response = await ai.models.generateContent({
+                            model: 'gemini-2.5-flash',
+                            contents: textBody,
+                            config: { 
+                                systemInstruction: botConfig.systemInstruction,
+                                temperature: botConfig.temperature 
+                            }
+                        });
+                        
+                        const replyText = response.text;
+                        await sock.sendMessage(remoteJid, { text: replyText }, { quoted: msg });
+                        addLog("Risposta AI inviata");
+                    }
+                } catch (e) {
+                    addLog("Errore Generazione AI: " + e.message);
+                }
+            }
+        });
+
+    } catch (e) {
+        addLog("CRASH AVVIO: " + e.message);
+        setTimeout(startBaileys, 5000);
+    }
 }
 `;
     downloadFile('server.js', content);
@@ -478,24 +497,23 @@ async function startBaileys() {
                     </div>
                     <h3 className="text-lg font-bold mb-2 flex items-center text-emerald-400">
                         <Download className="w-5 h-5 mr-2" />
-                        Download File Server (V10 Universal)
+                        Download Server V11 (Render Fix)
                     </h3>
                     <p className="text-slate-300 text-sm mb-6 max-w-xl">
-                        Usa questi file per <strong>FastComet</strong> (con fix git-ssh) o per <strong>Render.com</strong>.
-                        <br/><span className="text-yellow-400 text-xs font-bold">Compatibile con Node 18+</span>
+                        Usa questi file aggiornati. Risolvono il problema del "Boot Loop" su Render e il QR che non appare.
                     </p>
 
                     <div className="flex flex-col sm:flex-row gap-3 relative z-10">
                         <button 
                             onClick={generateServerJs}
-                            className={`flex-1 flex items-center justify-center p-3 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 transition-colors`}
+                            className={`flex-1 flex items-center justify-center p-3 rounded-lg border border-slate-700 bg-emerald-900/30 hover:bg-emerald-900/50 transition-colors border-emerald-800`}
                         >
                             <FileCode className="w-4 h-4 mr-2 text-emerald-400" />
-                            <span className="font-bold text-sm">server.js</span>
+                            <span className="font-bold text-sm">server.js (V11)</span>
                         </button>
                         
                         <button 
-                             onClick={() => generatePackageJson('fastcomet')}
+                             onClick={generatePackageJson}
                              className="flex-1 flex items-center justify-center p-3 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 transition-colors"
                         >
                             <FileJson className="w-4 h-4 mr-2 text-yellow-400" />
