@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { BotAccount, DEFAULT_INSTRUCTION } from '../types';
-import { Save, RefreshCw, ChevronDown, Check, Smartphone, Cloud, UploadCloud, Loader2, Power, Key, ExternalLink, ShieldAlert, Eye, EyeOff, HelpCircle, X, Server, FileUp, Globe, MonitorOff, Download, FileJson, FileCode, Terminal, Link as LinkIcon, Zap, Trash2, Cpu } from 'lucide-react';
+import { Save, RefreshCw, ChevronDown, Check, Smartphone, Cloud, UploadCloud, Loader2, Power, Key, ExternalLink, ShieldAlert, Eye, EyeOff, HelpCircle, X, Server, FileUp, Globe, MonitorOff, Download, FileJson, FileCode, Terminal, Link as LinkIcon, Zap, Trash2, Cpu, Settings } from 'lucide-react';
 
 interface ConfigScreenProps {
   account: BotAccount;
@@ -113,7 +113,7 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
     }
   };
 
-  // --- GENERATION LOGIC FOR REAL SERVER CODE (BAILEYS EDITION V6.0 - LIGHTWEIGHT) ---
+  // --- GENERATION LOGIC FOR REAL SERVER CODE (BAILEYS EDITION V7.0 - NPM FIX) ---
   const downloadFile = (filename: string, content: string) => {
     const element = document.createElement('a');
     const file = new Blob([content], {type: 'text/plain'});
@@ -124,12 +124,24 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
     document.body.removeChild(element);
   };
 
+  const generateNpmrc = () => {
+    // This file tells npm to ignore dev dependencies and git checks
+    const content = `production=true
+audit=false
+fund=false
+save=false
+progress=false
+loglevel=error
+`;
+    downloadFile('.npmrc', content);
+  };
+
   const generatePackageJson = () => {
-    // V6.0: Minimal dependencies to fix "npm error code EAGAIN" on shared hosting
+    // V7.0: Explicitly removed problematic entries
     const pkg = {
-      "name": `whatsapp-bot-v6-light`,
-      "version": "6.0.0",
-      "description": "Bot WhatsApp V6 (Lightweight)",
+      "name": `whatsapp-bot-v7-prod`,
+      "version": "7.0.0",
+      "description": "Bot WhatsApp V7 (Production)",
       "main": "server.js",
       "scripts": {
         "start": "node server.js"
@@ -149,13 +161,12 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
 
   const generateServerJs = () => {
     const content = `/**
- * BOT WA V6.1 - AUTO-CLEAN EDITION
- * Fixes: .wwebjs_auth cleanup, npm EAGAIN, Memory leaks
- * Features: Remote QR, Auto Cleanup
+ * BOT WA V7.0 - PRODUCTION FIX
+ * Fixes: NPM Fork Error, Memory Limits
  */
 
 const http = require('http');
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, delay } = require('@whiskeysockets/baileys');
 const qrcode = require('qrcode');
 const { GoogleGenAI } = require("@google/genai");
 const pino = require('pino');
@@ -165,17 +176,13 @@ const path = require('path');
 const PORT = process.env.PORT || 3000;
 const CONFIG_FILE = path.join(__dirname, 'bot_config.json');
 
-// --- AUTO-CLEANUP VECCHIE SESSIONI ---
+// --- AUTO-CLEANUP ---
 try {
     const oldSession = path.join(__dirname, '.wwebjs_auth');
-    if (fs.existsSync(oldSession)) {
-        console.log("Rilevata vecchia sessione Puppeteer. Pulizia in corso...");
-        fs.rmSync(oldSession, { recursive: true, force: true });
-        console.log("Pulizia completata.");
-    }
-} catch(e) { console.error("Errore Auto-Cleanup:", e); }
+    if (fs.existsSync(oldSession)) fs.rmSync(oldSession, { recursive: true, force: true });
+} catch(e) {}
 
-// --- GESTIONE CONFIGURAZIONE PERSISTENTE ---
+// --- CONFIG ---
 let botConfig = {
     apiKey: process.env.API_KEY,
     systemInstruction: \`${localConfig.systemInstruction.replace(/`/g, '\\`').replace(/\n/g, '\\n')}\`,
@@ -186,29 +193,19 @@ if (fs.existsSync(CONFIG_FILE)) {
     try {
         const saved = fs.readFileSync(CONFIG_FILE, 'utf8');
         botConfig = { ...botConfig, ...JSON.parse(saved) };
-    } catch(e) { console.error("Errore lettura config:", e); }
+    } catch(e) { console.error("Config load error", e); }
 }
 
 function saveConfig() {
     fs.writeFileSync(CONFIG_FILE, JSON.stringify(botConfig, null, 2));
 }
 
-// Stato Globale
+// Global State
 let qrCodeDataUrl = '';
-let statusMessage = 'In attesa...';
+let statusMessage = 'Avvio sistema...';
 let isConnected = false;
 let logs = [];
 let ai = null;
-
-function initAI() {
-    if(botConfig.apiKey) {
-        try {
-            ai = new GoogleGenAI({ apiKey: botConfig.apiKey });
-            addLog("AI Inizializzata");
-        } catch(e) { addLog("Errore Init AI: " + e.message); }
-    }
-}
-initAI();
 
 function addLog(msg) {
     const time = new Date().toLocaleTimeString();
@@ -217,101 +214,106 @@ function addLog(msg) {
     console.log(msg);
 }
 
-// 1. SERVER HTTP LIGHTWEIGHT
+function initAI() {
+    if(botConfig.apiKey) {
+        try {
+            ai = new GoogleGenAI({ apiKey: botConfig.apiKey });
+            addLog("AI: Pronta");
+        } catch(e) { addLog("AI Errore: " + e.message); }
+    } else {
+        addLog("AI: Manca API Key (Verifica Variabili Ambiente)");
+    }
+}
+initAI();
+
+// 1. HTTP SERVER (Keep-Alive)
 const server = http.createServer((req, res) => {
-    // CORS & Headers
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
     if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
 
-    // API: Stato QR (Per Dashboard React)
     if (req.url === '/api/qr') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ 
             qr: qrCodeDataUrl, 
             status: isConnected ? 'CONNECTED' : (qrCodeDataUrl ? 'SCAN_NEEDED' : 'INITIALIZING'),
             instanceId: "${account.instanceId}",
-            logs: logs.slice(0, 5)
+            logs: logs.slice(0, 10)
         }));
         return;
     }
 
-    // API: Update Config
     if (req.url === '/api/update-config' && req.method === 'POST') {
         let body = '';
-        req.on('data', chunk => { body += chunk.toString(); });
+        req.on('data', c => body += c);
         req.on('end', () => {
             try {
                 const data = JSON.parse(body);
-                if(data.apiKey) botConfig.apiKey = data.apiKey;
                 if(data.systemInstruction) botConfig.systemInstruction = data.systemInstruction;
                 saveConfig();
                 initAI();
-                addLog("CONFIG AGGIORNATA");
+                addLog("Configurazioni aggiornate da Dashboard");
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ success: true }));
-            } catch (e) {
-                res.writeHead(400); res.end(JSON.stringify({ success: false }));
-            }
+            } catch(e) { res.writeHead(400); res.end(); }
         });
         return;
     }
 
-    // Fallback: Pagina Status Semplice
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end(\`
-        <html><body style="font-family:sans-serif;background:#f0f2f5;text-align:center;padding:50px;">
-        <div style="background:white;padding:30px;border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,0.1);max-width:500px;margin:auto;">
-            <h1 style="color:#00a884;">Server V6.1 Clean</h1>
-            <p>Stato: <strong>\${isConnected ? '✅ ONLINE' : '⏳ ' + statusMessage}</strong></p>
-            <p style="font-size:12px;color:#666;">API Endpoint: /api/qr</p>
-            <div style="margin-top:20px;padding:10px;background:#eee;border-radius:5px;font-size:10px;text-align:left;">
+    res.end(\`<html><body style="font-family:sans-serif;background:#2d3748;color:white;text-align:center;padding:50px;">
+        <div style="background:#1a202c;padding:30px;border-radius:15px;max-width:600px;margin:auto;border:1px solid #4a5568;">
+            <h1 style="color:#48bb78;">Bot V7.0 Online</h1>
+            <p>Stato: <strong>\${isConnected ? '✅ CONNESSO' : '⚠️ ' + statusMessage}</strong></p>
+            <div style="background:black;padding:15px;border-radius:8px;font-family:monospace;text-align:left;font-size:12px;color:#00ff00;max-height:300px;overflow-y:auto;">
                \${logs.join('<br>')}
             </div>
         </div>
-        </body></html>
-    \`);
+    </body></html>\`);
 });
 
 server.listen(PORT, () => {
-    addLog(\`SERVER AVVIATO SU PORTA \${PORT}\`);
+    addLog(\`WEB SERVER OK PORT:\${PORT}\`);
     startBaileys();
 });
 
-// 2. MOTORE WHATSAPP (BAILEYS)
+// 2. WHATSAPP LOGIC
 async function startBaileys() {
-    addLog("Avvio Baileys...");
-    const { state, saveCreds } = await useMultiFileAuthState('auth_info_v6_light');
+    addLog("Avvio Motore WhatsApp...");
+    const { state, saveCreds } = await useMultiFileAuthState('auth_info_v7');
     
     const sock = makeWASocket({
         auth: state,
-        printQRInTerminal: true, // Logga anche in console per debug
+        printQRInTerminal: true,
         logger: pino({ level: 'silent' }),
-        browser: ["${account.name}", "FastComet", "6.0"],
+        browser: ["${account.name}", "FastComet", "7.0"],
         connectTimeoutMs: 60000,
+        syncFullHistory: false
     });
 
     sock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect, qr } = update;
         
         if(qr) {
-            statusMessage = "QR Generato";
+            statusMessage = "SCANSIONA QR";
             qrcode.toDataURL(qr, (err, url) => {
                 if(!err) qrCodeDataUrl = url;
             });
+            addLog("Nuovo QR Generato");
         }
 
         if(connection === 'close') {
             isConnected = false;
             const shouldReconnect = (lastDisconnect.error)?.output?.statusCode !== DisconnectReason.loggedOut;
+            addLog(\`Disconnesso. Riconnessione: \${shouldReconnect}\`);
             if(shouldReconnect) setTimeout(startBaileys, 5000);
         } else if(connection === 'open') {
             isConnected = true;
             qrCodeDataUrl = '';
-            statusMessage = "Connesso";
-            addLog(">>> CONNESSO <<<");
+            statusMessage = "CONNESSO";
+            addLog(">>> DISPOSITIVO CONNESSO CON SUCCESSO <<<");
         }
     });
 
@@ -326,11 +328,14 @@ async function startBaileys() {
             const textBody = msg.message.conversation || msg.message.extendedTextMessage?.text;
             
             if(!textBody) continue;
-            addLog(\`Msg: \${textBody.substring(0,10)}...\`);
+            addLog(\`Msg da \${remoteJid.split('@')[0]}: \${textBody.substring(0,15)}...\`);
 
             try {
                 if(ai) {
                     await sock.sendPresenceUpdate('composing', remoteJid);
+                    // Artificial delay for realism
+                    await delay(1500); 
+                    
                     const response = await ai.models.generateContent({
                         model: 'gemini-2.5-flash',
                         contents: textBody,
@@ -339,10 +344,13 @@ async function startBaileys() {
                             temperature: botConfig.temperature 
                         }
                     });
-                    await sock.sendMessage(remoteJid, { text: response.text }, { quoted: msg });
+                    
+                    const replyText = response.text;
+                    await sock.sendMessage(remoteJid, { text: replyText }, { quoted: msg });
+                    addLog("Risposta AI inviata");
                 }
             } catch (e) {
-                console.error("AI Error", e);
+                addLog("Errore Generazione AI: " + e.message);
             }
         }
     });
@@ -410,8 +418,8 @@ async function startBaileys() {
                 onClick={() => setShowDeployGuide(true)}
                 className="flex items-center px-3 py-2 bg-slate-800 text-white rounded-lg text-xs font-bold hover:bg-slate-700 transition-colors shadow-sm"
              >
-                <Zap className="w-3.5 h-3.5 mr-2 text-yellow-400" />
-                Aggiorna V6 (Light)
+                <Settings className="w-3.5 h-3.5 mr-2" />
+                Guida V7.0
              </button>
              
              <div className={`flex items-center px-3 py-1.5 rounded-full border text-xs font-bold uppercase tracking-wide ml-2 ${
@@ -463,36 +471,38 @@ async function startBaileys() {
                     <div className="absolute top-0 right-0 p-8 opacity-10">
                         <Cpu className="w-32 h-32" />
                     </div>
-                    <h3 className="text-lg font-bold mb-2 flex items-center text-blue-300">
+                    <h3 className="text-lg font-bold mb-2 flex items-center text-emerald-300">
                         <Download className="w-5 h-5 mr-2" />
-                        Step 1: Installa Server V6.0
+                        Step 1: Installazione V7.0 (Fix NPM)
                     </h3>
                     <p className="text-slate-400 text-sm mb-6 max-w-xl">
-                        Versione <strong>6.0 LIGHTWEIGHT</strong>. Riduce il consumo di memoria e risolve l'errore "EAGAIN".
-                        <br/><span className="text-yellow-400 text-xs">⚠️ Cancella la cartella node_modules prima di caricare.</span>
+                        Versione <strong>7.0 PRODUCTION</strong>. Include il fix per l'errore "Cannot Fork/EAGAIN".
+                        <br/><span className="text-yellow-400 text-xs">⚠️ Devi caricare tutti e 3 i file, incluso .npmrc!</span>
                     </p>
 
-                    <div className="flex flex-col sm:flex-row gap-4 relative z-10">
+                    <div className="flex flex-col sm:flex-row gap-3 relative z-10">
                         <button 
                             onClick={generateServerJs}
                             className={`flex-1 flex items-center justify-center p-3 rounded-lg border border-slate-700 hover:bg-slate-800 transition-colors`}
                         >
-                            <FileCode className="w-5 h-5 mr-3 text-blue-400" />
-                            <div className="text-left">
-                                <div className="font-bold text-sm">Scarica server.js</div>
-                                <div className="text-xs text-slate-500">v6.1 Auto-Clean</div>
-                            </div>
+                            <FileCode className="w-4 h-4 mr-2 text-blue-400" />
+                            <span className="font-bold text-sm">1. server.js</span>
                         </button>
                         
                         <button 
                              onClick={generatePackageJson}
                              className="flex-1 flex items-center justify-center p-3 rounded-lg border border-slate-700 hover:bg-slate-800 transition-colors"
                         >
-                            <FileJson className="w-5 h-5 mr-3 text-green-400" />
-                            <div className="text-left">
-                                <div className="font-bold text-sm">Scarica package.json</div>
-                                <div className="text-xs text-slate-500">Dependencies V6.0</div>
-                            </div>
+                            <FileJson className="w-4 h-4 mr-2 text-green-400" />
+                            <span className="font-bold text-sm">2. package.json</span>
+                        </button>
+
+                        <button 
+                             onClick={generateNpmrc}
+                             className="flex-1 flex items-center justify-center p-3 rounded-lg border border-yellow-800/50 bg-yellow-900/20 hover:bg-yellow-900/40 transition-colors"
+                        >
+                            <Settings className="w-4 h-4 mr-2 text-yellow-400" />
+                            <span className="font-bold text-sm">3. .npmrc (Fix)</span>
                         </button>
                     </div>
                 </div>
@@ -597,7 +607,7 @@ async function startBaileys() {
             </div>
         </div>
 
-        {/* Modal Guida FastComet V6.0 */}
+        {/* Modal Guida FastComet V7.0 */}
         {showDeployGuide && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-0 overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]">
@@ -607,8 +617,8 @@ async function startBaileys() {
                         <Terminal className="w-6 h-6 text-white" />
                      </div>
                      <div>
-                        <h2 className="text-xl font-bold">Installazione Pulita V6.0</h2>
-                        <p className="text-slate-300 text-sm">Guida alla pulizia file obsoleti</p>
+                        <h2 className="text-xl font-bold">Guida Installazione V7.0</h2>
+                        <p className="text-slate-300 text-sm">Risoluzione Errore "Cannot Fork/NPM"</p>
                      </div>
                   </div>
                   <button onClick={() => setShowDeployGuide(false)} className="bg-white/10 hover:bg-white/20 p-2 rounded-full transition-colors">
@@ -617,22 +627,23 @@ async function startBaileys() {
               </div>
               
               <div className="p-8 overflow-y-auto">
-                 <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-6 text-sm text-blue-800 flex items-start">
-                    <Globe className="w-5 h-5 mr-3 shrink-0 mt-0.5" />
+                 <div className="bg-yellow-50 border border-yellow-100 rounded-lg p-4 mb-6 text-sm text-yellow-800 flex items-start">
+                    <ShieldAlert className="w-5 h-5 mr-3 shrink-0 mt-0.5" />
                     <p>
-                        <strong>CONSIGLIO ESPERTO:</strong> <br/>
-                        Per evitare conflitti con la vecchia versione (Puppeteer), è fondamentale eliminare le cartelle residue.
+                        <strong>IMPORTANTE:</strong> L'errore "Code 128 / Cannot fork" indica che il server FastComet ha finito la memoria durante l'installazione delle dipendenze di sviluppo.
+                        Il file <code>.npmrc</code> serve a prevenire questo.
                     </p>
                  </div>
 
-                 <h3 className="font-bold text-slate-900 mb-4">Procedura "Tabula Rasa":</h3>
+                 <h3 className="font-bold text-slate-900 mb-4">Procedura V7.0:</h3>
                  <ol className="list-decimal list-inside space-y-4 text-slate-600 ml-2 text-sm">
-                    <li>Scarica i 2 nuovi file (server.js e package.json).</li>
+                    <li>Scarica TUTTI e 3 i file: <code>server.js</code>, <code>package.json</code> e <code>.npmrc</code>.</li>
                     <li>Accedi al File Manager di FastComet (cartella del bot).</li>
-                    <li className="font-bold text-red-600">Cancella la cartella <code>.wwebjs_auth</code> (Vecchia Sessione).</li>
-                    <li className="font-bold text-red-600">Cancella la cartella <code>node_modules</code>.</li>
-                    <li>Puoi cancellare anche <code>tmp</code> se presente.</li>
-                    <li>Carica i nuovi file e avvia <code>Run NPM Install</code>.</li>
+                    <li className="font-bold text-red-600">Cancella TUTTO il contenuto della cartella (incluso node_modules).</li>
+                    <li>Carica i 3 file. <span className="text-xs text-slate-500">(Se non vedi .npmrc, attiva "Show Hidden Files" nelle impostazioni in alto a destra).</span></li>
+                    <li>Vai su "Setup Node.js App".</li>
+                    <li>Clicca <strong>Run NPM Install</strong> (Dovrebbe funzionare ora).</li>
+                    <li>Clicca <strong>Restart</strong>.</li>
                  </ol>
               </div>
               
