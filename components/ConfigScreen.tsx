@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { BotAccount, DEFAULT_INSTRUCTION } from '../types';
-import { Save, RefreshCw, ChevronDown, Check, Smartphone, Cloud, UploadCloud, Loader2, Power, Key, ExternalLink, ShieldAlert, Eye, EyeOff, HelpCircle, X, Server, FileUp, Globe, MonitorOff, Download, FileJson, FileCode, Terminal, Link as LinkIcon, Zap, Trash2, Cpu, Settings, Box } from 'lucide-react';
+import { Save, RefreshCw, ChevronDown, Check, Smartphone, Cloud, UploadCloud, Loader2, Power, Key, ExternalLink, ShieldAlert, Eye, EyeOff, HelpCircle, X, Server, FileUp, Globe, MonitorOff, Download, FileJson, FileCode, Terminal, Link as LinkIcon, Zap, Trash2, Cpu, Settings, Box, Github } from 'lucide-react';
 
 interface ConfigScreenProps {
   account: BotAccount;
@@ -18,6 +18,7 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
   const [isDirty, setIsDirty] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [showDeployGuide, setShowDeployGuide] = useState(false);
+  const [showRenderGuide, setShowRenderGuide] = useState(false);
   
   // Real deployment states
   const [isDeploying, setIsDeploying] = useState(false);
@@ -113,7 +114,7 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
     }
   };
 
-  // --- GENERATION LOGIC FOR REAL SERVER CODE (BAILEYS EDITION V9.0 - ANTI-SSH) ---
+  // --- GENERATION LOGIC FOR REAL SERVER CODE (BAILEYS EDITION V10 - UNIVERSAL) ---
   const downloadFile = (filename: string, content: string) => {
     const element = document.createElement('a');
     const file = new Blob([content], {type: 'text/plain'});
@@ -125,29 +126,23 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
   };
 
   const generateNpmrc = () => {
-    // V9.0: Strict Production, Registry Only, No Git Checks
+    // V10: Strict Production
     const content = `production=true
-audit=false
-fund=false
-save=false
-package-lock=false
-git-checks=false
 registry=https://registry.npmjs.org/
 `;
     downloadFile('.npmrc', content);
   };
 
-  const generatePackageJson = () => {
-    // V9.0: NUCLEAR OVERRIDES
-    // We explicitly override any devDependency that uses git+ssh to a dummy version (0.0.0)
-    // This tricks NPM into skipping the GitHub SSH fetch entirely.
+  const generatePackageJson = (mode: 'fastcomet' | 'render') => {
+    // V10: UNIVERSAL PACKAGE JSON
     const pkg = {
-      "name": `whatsapp-bot-v9-antissh`,
-      "version": "9.0.0",
-      "description": "Bot WhatsApp V9 (Anti-SSH Fix)",
+      "name": `whatsapp-bot-v10-${mode}`,
+      "version": "10.0.0",
+      "description": `Bot WhatsApp V10 (${mode})`,
       "main": "server.js",
       "scripts": {
-        "start": "node server.js"
+        "start": "node server.js",
+        "build": "echo 'No build step'" // Useful for Render
       },
       "dependencies": {
         "@whiskeysockets/baileys": "^6.6.0",
@@ -156,6 +151,7 @@ registry=https://registry.npmjs.org/
         "pino": "^7.0.0"
       },
       "overrides": {
+        // Essential overrides for FastComet, harmless for Render
         "eslint-config": "0.0.0",
         "@whiskeysockets/eslint-config": "0.0.0",
         "linkifyjs": "^4.0.0"
@@ -169,8 +165,7 @@ registry=https://registry.npmjs.org/
 
   const generateServerJs = () => {
     const content = `/**
- * BOT WA V9.0 - ANTI-SSH EDITION
- * Fixes: Permission Denied (Publickey) by overriding git deps
+ * BOT WA V10.0 - UNIVERSAL EDITION (Render & FastComet)
  */
 
 const http = require('http');
@@ -181,10 +176,10 @@ const pino = require('pino');
 const fs = require('fs');
 const path = require('path');
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000; // Render uses PORT env var automatically
 const CONFIG_FILE = path.join(__dirname, 'bot_config.json');
 
-// --- AUTO-CLEANUP ---
+// --- AUTO-CLEANUP (Solo per FastComet legacy) ---
 try {
     const oldSession = path.join(__dirname, '.wwebjs_auth');
     if (fs.existsSync(oldSession)) fs.rmSync(oldSession, { recursive: true, force: true });
@@ -234,7 +229,7 @@ function initAI() {
 }
 initAI();
 
-// 1. HTTP SERVER (Keep-Alive)
+// 1. HTTP SERVER (Keep-Alive & API)
 const server = http.createServer((req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -271,9 +266,10 @@ const server = http.createServer((req, res) => {
     }
 
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end(\`<html><body style="font-family:sans-serif;background:#ff9800;color:#333;text-align:center;padding:50px;">
-        <div style="background:white;padding:30px;border-radius:15px;max-width:600px;margin:auto;border:4px solid #333;box-shadow: 10px 10px 0px rgba(0,0,0,0.2);">
-            <h1 style="color:#e65100;">Bot V9.0 ANTI-SSH</h1>
+    res.end(\`<html><body style="font-family:sans-serif;background:#202020;color:#eee;text-align:center;padding:50px;">
+        <div style="background:#333;padding:30px;border-radius:15px;max-width:600px;margin:auto;border:1px solid #444;box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+            <h1 style="color:#00e676;">Bot V10 Universal</h1>
+            <p>Platform: <strong>Node.js (Render/FastComet)</strong></p>
             <p>Status: <strong>\${isConnected ? '✅ CONNESSO' : '⚠️ ' + statusMessage}</strong></p>
             <div style="background:black;padding:15px;border-radius:8px;font-family:monospace;text-align:left;font-size:12px;color:#00ff00;max-height:300px;overflow-y:auto;">
                \${logs.join('<br>')}
@@ -290,13 +286,15 @@ server.listen(PORT, () => {
 // 2. WHATSAPP LOGIC
 async function startBaileys() {
     addLog("Avvio Motore WhatsApp...");
-    const { state, saveCreds } = await useMultiFileAuthState('auth_info_v9');
+    // Render/Containers are ephemeral, so we use a standard auth folder. 
+    // On Render, this will be wiped on redeploy unless a Disk is attached, but keeps connection alive during run.
+    const { state, saveCreds } = await useMultiFileAuthState('auth_info_v10');
     
     const sock = makeWASocket({
         auth: state,
         printQRInTerminal: true,
         logger: pino({ level: 'silent' }),
-        browser: ["${account.name}", "FastComet", "9.0"],
+        browser: ["${account.name}", "UniversalBot", "10.0"],
         connectTimeoutMs: 60000,
         syncFullHistory: false
     });
@@ -341,7 +339,6 @@ async function startBaileys() {
             try {
                 if(ai) {
                     await sock.sendPresenceUpdate('composing', remoteJid);
-                    // Artificial delay for realism
                     await delay(1500); 
                     
                     const response = await ai.models.generateContent({
@@ -424,19 +421,19 @@ async function startBaileys() {
           <div className="flex items-center space-x-3">
              <button
                 onClick={() => setShowDeployGuide(true)}
-                className="flex items-center px-3 py-2 bg-orange-600 text-white rounded-lg text-xs font-bold hover:bg-orange-700 transition-colors shadow-sm"
+                className="flex items-center px-3 py-2 bg-white text-slate-600 border border-slate-200 rounded-lg text-xs font-bold hover:bg-slate-50 transition-colors shadow-sm"
              >
                 <Settings className="w-3.5 h-3.5 mr-2" />
-                Guida V9.0
+                Guida FastComet
              </button>
-             
-             <div className={`flex items-center px-3 py-1.5 rounded-full border text-xs font-bold uppercase tracking-wide ml-2 ${
-                 account.status === 'connected' 
-                 ? 'bg-emerald-100 text-emerald-700 border-emerald-200' 
-                 : 'bg-red-100 text-red-700 border-red-200'
-             }`}>
-                 {account.status === 'connected' ? 'Cloud Link Active' : 'Cloud Link Offline'}
-             </div>
+
+             <button
+                onClick={() => setShowRenderGuide(true)}
+                className="flex items-center px-3 py-2 bg-slate-800 text-white rounded-lg text-xs font-bold hover:bg-slate-900 transition-colors shadow-sm"
+             >
+                <Cloud className="w-3.5 h-3.5 mr-2" />
+                Guida Render.com
+             </button>
           </div>
         </div>
 
@@ -475,42 +472,42 @@ async function startBaileys() {
                 </div>
 
                 {/* Export Real Bot Section */}
-                <div className="bg-orange-950 rounded-xl shadow-lg border border-orange-900 p-6 text-white relative overflow-hidden">
+                <div className="bg-slate-900 rounded-xl shadow-lg border border-slate-800 p-6 text-white relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-8 opacity-10">
-                        <Box className="w-32 h-32" />
+                        <Github className="w-32 h-32" />
                     </div>
-                    <h3 className="text-lg font-bold mb-2 flex items-center text-orange-300">
+                    <h3 className="text-lg font-bold mb-2 flex items-center text-emerald-400">
                         <Download className="w-5 h-5 mr-2" />
-                        Step 1: Installazione V9.0 (Anti-SSH)
+                        Download File Server (V10 Universal)
                     </h3>
                     <p className="text-slate-300 text-sm mb-6 max-w-xl">
-                        Versione <strong>9.0 DEFINITIVA</strong>. Aggira il blocco Git/SSH di FastComet usando override NPM.
-                        <br/><span className="text-yellow-400 text-xs font-bold">⚠️ PULISCI TUTTO IL SERVER PRIMA DI CARICARE!</span>
+                        Usa questi file per <strong>FastComet</strong> (con fix git-ssh) o per <strong>Render.com</strong>.
+                        <br/><span className="text-yellow-400 text-xs font-bold">Compatibile con Node 18+</span>
                     </p>
 
                     <div className="flex flex-col sm:flex-row gap-3 relative z-10">
                         <button 
                             onClick={generateServerJs}
-                            className={`flex-1 flex items-center justify-center p-3 rounded-lg border border-orange-700 bg-orange-900/30 hover:bg-orange-800 transition-colors`}
+                            className={`flex-1 flex items-center justify-center p-3 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 transition-colors`}
                         >
-                            <FileCode className="w-4 h-4 mr-2 text-orange-200" />
-                            <span className="font-bold text-sm">1. server.js</span>
+                            <FileCode className="w-4 h-4 mr-2 text-emerald-400" />
+                            <span className="font-bold text-sm">server.js</span>
                         </button>
                         
                         <button 
-                             onClick={generatePackageJson}
-                             className="flex-1 flex items-center justify-center p-3 rounded-lg border border-orange-700 bg-orange-900/30 hover:bg-orange-800 transition-colors"
+                             onClick={() => generatePackageJson('fastcomet')}
+                             className="flex-1 flex items-center justify-center p-3 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 transition-colors"
                         >
-                            <FileJson className="w-4 h-4 mr-2 text-orange-200" />
-                            <span className="font-bold text-sm">2. package.json</span>
+                            <FileJson className="w-4 h-4 mr-2 text-yellow-400" />
+                            <span className="font-bold text-sm">package.json</span>
                         </button>
 
                         <button 
                              onClick={generateNpmrc}
-                             className="flex-1 flex items-center justify-center p-3 rounded-lg border border-yellow-700 bg-yellow-900/30 hover:bg-yellow-800 transition-colors"
+                             className="flex-1 flex items-center justify-center p-3 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 transition-colors"
                         >
-                            <Settings className="w-4 h-4 mr-2 text-yellow-400" />
-                            <span className="font-bold text-sm">3. .npmrc</span>
+                            <Settings className="w-4 h-4 mr-2 text-slate-400" />
+                            <span className="font-bold text-sm">.npmrc</span>
                         </button>
                     </div>
                 </div>
@@ -519,17 +516,16 @@ async function startBaileys() {
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 relative overflow-hidden">
                     <h3 className="text-lg font-bold mb-4 flex items-center text-slate-900">
                         <LinkIcon className="w-5 h-5 mr-2 text-emerald-600" />
-                        Step 2: Connetti Dashboard al Server
+                        Connetti Dashboard
                     </h3>
                     <p className="text-sm text-slate-500 mb-4">
-                        Incolla qui l'URL del tuo server FastComet (es. <code>https://app.miosito.com</code>). 
-                        Questo permette alla dashboard di recuperare il QR Code.
+                        Inserisci qui l'URL fornito da FastComet o Render (es. <code>https://my-bot.onrender.com</code>). 
                     </p>
                     
                     <div className="flex gap-2">
                         <input 
                             type="text" 
-                            placeholder="https://app.tuodominio.com"
+                            placeholder="https://..."
                             value={serverUrl}
                             onChange={(e) => handleUrlChange(e.target.value)}
                             className={`flex-1 px-4 py-2 border rounded-lg text-sm ${!serverUrl && isDirty ? 'border-amber-300 bg-amber-50' : 'border-slate-300'}`}
@@ -615,7 +611,7 @@ async function startBaileys() {
             </div>
         </div>
 
-        {/* Modal Guida FastComet V9.0 */}
+        {/* Modal Guida FastComet V10 */}
         {showDeployGuide && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-0 overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]">
@@ -625,7 +621,7 @@ async function startBaileys() {
                         <Terminal className="w-6 h-6 text-white" />
                      </div>
                      <div>
-                        <h2 className="text-xl font-bold">Guida V9.0 (Ultima Spiaggia)</h2>
+                        <h2 className="text-xl font-bold">Guida FastComet V10</h2>
                         <p className="text-orange-200 text-sm">Aggiramento blocco SSH/Git di cPanel</p>
                      </div>
                   </div>
@@ -635,45 +631,84 @@ async function startBaileys() {
               </div>
               
               <div className="p-8 overflow-y-auto">
-                 <div className="bg-red-50 border border-red-100 rounded-lg p-4 mb-6 text-sm text-red-800 flex items-start">
-                    <ShieldAlert className="w-5 h-5 mr-3 shrink-0 mt-0.5" />
-                    <div>
-                        <p className="font-bold mb-1">IL PROBLEMA (Code 128):</p>
-                        <p>
-                           Il firewall di FastComet blocca Git quando cerca di scaricare dipendenze via SSH (`git@github.com`).
-                           Questo è un blocco di sicurezza del server, non un errore del codice.
-                        </p>
-                    </div>
-                 </div>
-
-                 <h3 className="font-bold text-slate-900 mb-4">Soluzione V9.0:</h3>
-                 <p className="text-sm text-slate-600 mb-4">
-                    Ho modificato il file <code>package.json</code> per dire a NPM di <strong>ignorare</strong> le librerie che richiedono SSH, scaricando versioni "finte" dal registro pubblico.
-                 </p>
-
                  <ol className="list-decimal list-inside space-y-4 text-slate-600 ml-2 text-sm font-bold">
-                    <li>Scarica i 3 nuovi file V9.0.</li>
+                    <li>Scarica i 3 file dal pulsante nero.</li>
                     <li className="text-red-600">CANCELLA TUTTO sul server (anche node_modules e file nascosti).</li>
                     <li>Carica i 3 file.</li>
                     <li>
-                        Setup Node.js App -> <strong>Environment Variables</strong>:
+                        Setup Node.js App &rarr; <strong>Environment Variables</strong>:
                         <br/><code>NODE_ENV</code> = <code>production</code> (Fondamentale!)
                     </li>
                     <li>Clicca <strong>Run NPM Install</strong>.</li>
                  </ol>
-
-                 <div className="mt-6 p-4 bg-slate-100 rounded text-xs text-slate-500">
-                    Se ancora non funziona, il server FastComet ha restrizioni troppo severe.
-                    Ti consiglio di usare <strong>Render.com</strong> (Gratis) o <strong>Railway</strong>.
-                 </div>
               </div>
               
               <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end">
                  <button 
                     onClick={() => setShowDeployGuide(false)}
-                    className="px-6 py-2 bg-orange-900 text-white rounded-lg font-bold hover:bg-orange-800 transition-colors"
+                    className="px-6 py-2 bg-slate-200 text-slate-800 rounded-lg font-bold hover:bg-slate-300 transition-colors"
                  >
-                    Ho capito
+                    Chiudi
+                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Guida RENDER.COM */}
+        {showRenderGuide && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-0 overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]">
+              <div className="bg-slate-900 p-6 text-white flex justify-between items-center shrink-0">
+                  <div className="flex items-center space-x-3">
+                     <div className="bg-white/20 p-2 rounded-lg">
+                        <Cloud className="w-6 h-6 text-white" />
+                     </div>
+                     <div>
+                        <h2 className="text-xl font-bold">Guida Render.com (Gratis)</h2>
+                        <p className="text-slate-300 text-sm">Alternativa consigliata a FastComet</p>
+                     </div>
+                  </div>
+                  <button onClick={() => setShowRenderGuide(false)} className="bg-white/10 hover:bg-white/20 p-2 rounded-full transition-colors">
+                     <X className="w-5 h-5" />
+                  </button>
+              </div>
+              
+              <div className="p-8 overflow-y-auto space-y-4 text-sm text-slate-600">
+                 <p>Se FastComet continua a dare errori Git, usa Render. È gratuito e fatto apposta per Node.js.</p>
+                 
+                 <div className="bg-slate-100 p-4 rounded-lg border border-slate-200">
+                    <h4 className="font-bold text-slate-800 mb-2">1. Prepara i file</h4>
+                    <ul className="list-disc list-inside space-y-1">
+                        <li>Scarica <code>server.js</code> e <code>package.json</code> da qui.</li>
+                        <li>Crea un nuovo <strong>Repository GitHub</strong> (privato va bene).</li>
+                        <li>Carica questi 2 file nel repo.</li>
+                    </ul>
+                 </div>
+
+                 <div className="bg-slate-100 p-4 rounded-lg border border-slate-200">
+                    <h4 className="font-bold text-slate-800 mb-2">2. Deploy su Render</h4>
+                    <ul className="list-disc list-inside space-y-1">
+                        <li>Vai su <a href="https://render.com" target="_blank" className="text-blue-600 underline">Render.com</a> e crea "New Web Service".</li>
+                        <li>Collega il tuo Repo GitHub.</li>
+                        <li>Runtime: <strong>Node</strong></li>
+                        <li>Build Command: <code>npm install</code></li>
+                        <li>Start Command: <code>node server.js</code></li>
+                        <li>Aggiungi Env Var: <code>API_KEY</code> = <code>TuaChiaveGemini</code></li>
+                    </ul>
+                 </div>
+                 
+                 <p className="font-bold text-emerald-600">
+                     Render ti darà un URL (es. https://bot.onrender.com). Incollalo nella dashboard qui sotto!
+                 </p>
+              </div>
+              
+              <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end">
+                 <button 
+                    onClick={() => setShowRenderGuide(false)}
+                    className="px-6 py-2 bg-slate-900 text-white rounded-lg font-bold hover:bg-slate-800 transition-colors"
+                 >
+                    Ho Capito
                  </button>
               </div>
             </div>
