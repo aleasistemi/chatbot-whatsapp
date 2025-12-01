@@ -88,12 +88,9 @@ export const AccountDashboard: React.FC<AccountDashboardProps> = ({
   };
 
   const initConnectFlow = (id: string) => {
-      // Check if another account is already connected (Single session restriction for Stability)
-      const connectedAccount = accounts.find(a => a.status === 'connected');
-      if (connectedAccount && connectedAccount.id !== id) {
-          alert(`Hai già un account connesso (${connectedAccount.name}).\nDisconnettilo prima di collegarne uno nuovo.`);
-          return;
-      }
+      // V16: REMOVED SINGLE SESSION RESTRICTION
+      // Now allows connecting multiple accounts simultaneously 
+      // (Assuming they are on different Render servers)
 
       setSelectedAccountId(id);
       // Retrieve saved URL if exists
