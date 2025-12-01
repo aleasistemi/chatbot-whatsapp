@@ -113,7 +113,7 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
     }
   };
 
-  // --- GENERATION LOGIC FOR REAL SERVER CODE (BAILEYS EDITION V12 - RENDER OPTIMIZED) ---
+  // --- GENERATION LOGIC FOR REAL SERVER CODE (V13 RESCUE MODE) ---
   const downloadFile = (filename: string, content: string) => {
     const element = document.createElement('a');
     const file = new Blob([content], {type: 'text/plain'});
@@ -125,11 +125,11 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
   };
 
   const generatePackageJson = () => {
-    // V12: RENDER OPTIMIZED
+    // V13: FORCE NODE 20 (LTS) TO FIX CRYPTO ISSUES
     const pkg = {
-      "name": "whatsapp-bot-v12-render",
-      "version": "12.0.0",
-      "description": "Bot WhatsApp V12 (Render Memory Fix)",
+      "name": "whatsapp-bot-v13-rescue",
+      "version": "13.0.0",
+      "description": "Bot WhatsApp V13 (Rescue Mode)",
       "main": "server.js",
       "scripts": {
         "start": "node server.js"
@@ -146,7 +146,7 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
         "linkifyjs": "^4.0.0"
       },
       "engines": {
-        "node": ">=18.0.0"
+        "node": ">=20.0.0 <21.0.0"
       }
     };
     downloadFile('package.json', JSON.stringify(pkg, null, 2));
@@ -154,27 +154,25 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
 
   const generateServerJs = () => {
     const content = `/**
- * BOT WA V12.0 - RENDER OPTIMIZED EDITION
- * Fixes: Memory Leak (syncFullHistory), Deprecated Flags, Browser Signature
+ * BOT WA V13.0 - RESCUE MODE
+ * Fixes: Connection Failure Loop, Auth Corruption, Node Version Compatibility
  */
 
 const http = require('http');
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, delay } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, delay, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
 const qrcode = require('qrcode');
 const { GoogleGenAI } = require("@google/genai");
 const pino = require('pino');
 const fs = require('fs');
 const path = require('path');
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 const CONFIG_FILE = path.join(__dirname, 'bot_config.json');
-const AUTH_DIR = path.join(__dirname, 'auth_info_v12');
+const AUTH_DIR = path.join(__dirname, 'auth_info_v13');
 
-// --- AUTO-CLEANUP LEGACY ---
-try {
-    const oldSession = path.join(__dirname, '.wwebjs_auth');
-    if (fs.existsSync(oldSession)) fs.rmSync(oldSession, { recursive: true, force: true });
-} catch(e) {}
+// --- AUTO-CLEANUP ON STARTUP ---
+// If the auth folder exists but implies a crash loop, we might want to wipe it.
+// For now, let's keep it safe but handle the disconnect error strictly.
 
 // --- CONFIG ---
 let botConfig = {
@@ -196,7 +194,7 @@ function saveConfig() {
 
 // Global State
 let qrCodeDataUrl = '';
-let statusMessage = 'Avvio sistema V12...';
+let statusMessage = 'Avvio sistema V13...';
 let isConnected = false;
 let logs = [];
 let ai = null;
@@ -215,7 +213,7 @@ function initAI() {
             addLog("AI: Pronta");
         } catch(e) { addLog("AI Errore: " + e.message); }
     } else {
-        addLog("AI: Manca API Key (Verifica Env Var su Render)");
+        addLog("AI: Manca API Key (Verifica Env Var)");
     }
 }
 initAI();
@@ -258,12 +256,12 @@ const server = http.createServer((req, res) => {
 
     // Status Page
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end(\`<html><body style="font-family:sans-serif;background:#0f172a;color:#fff;text-align:center;padding:50px;">
-        <div style="background:#1e293b;padding:30px;border-radius:15px;max-width:600px;margin:auto;border:1px solid #334155;box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-            <h1 style="color:#34d399;">Bot V12 Render Optimized</h1>
-            <p>Engine: <strong>Baileys (Low Memory Mode)</strong></p>
+    res.end(\`<html><body style="font-family:sans-serif;background:#2d0a31;color:#fff;text-align:center;padding:50px;">
+        <div style="background:#4a1d52;padding:30px;border-radius:15px;max-width:600px;margin:auto;border:1px solid #70247a;box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+            <h1 style="color:#d946ef;">Bot V13 Rescue Mode</h1>
+            <p>Node Version: <strong>\${process.version}</strong></p>
             <p>Status: <strong>\${isConnected ? '✅ CONNESSO' : '⚠️ ' + statusMessage}</strong></p>
-            <div style="background:#000;padding:15px;border-radius:8px;font-family:monospace;text-align:left;font-size:12px;color:#34d399;max-height:300px;overflow-y:auto;">
+            <div style="background:#000;padding:15px;border-radius:8px;font-family:monospace;text-align:left;font-size:12px;color:#d946ef;max-height:300px;overflow-y:auto;">
                \${logs.join('<br>')}
             </div>
         </div>
@@ -277,30 +275,31 @@ server.listen(PORT, () => {
 
 // 2. WHATSAPP LOGIC
 async function startBaileys() {
-    addLog("Avvio Motore WhatsApp (V12)...");
+    addLog("Avvio Motore WhatsApp (V13 Rescue)...");
     
     try {
         const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
+        const { version } = await fetchLatestBaileysVersion();
         
         const sock = makeWASocket({
+            version,
             auth: state,
-            // LOGGING & BROWSER
-            logger: pino({ level: 'fatal' }), // Minimized logging
-            browser: ["Mac OS", "Chrome", "10.15.7"], // Stable Signature for Render
+            // LOGGING & BROWSER - Using Linux signature for Render
+            logger: pino({ level: 'error' }), 
+            browser: ["Ubuntu", "Chrome", "20.0.04"], 
             
-            // TIMEOUTS & RETRIES
+            // TIMEOUTS
             connectTimeoutMs: 60000,
-            defaultQueryTimeoutMs: 60000,
-            keepAliveIntervalMs: 30000,
-            retryRequestDelayMs: 500,
+            keepAliveIntervalMs: 10000,
+            emitOwnEvents: false,
+            retryRequestDelayMs: 2000,
             
-            // MEMORY OPTIMIZATION (CRITICAL FOR RENDER FREE)
-            syncFullHistory: false, // Prevents OOM crashes on initial sync
-            printQRInTerminal: false, // Explicitly disabled
-            generateHighQualityLinkPreview: true
+            // MEMORY
+            syncFullHistory: false, 
+            printQRInTerminal: false
         });
 
-        sock.ev.on('connection.update', (update) => {
+        sock.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect, qr } = update;
             
             if(qr) {
@@ -308,29 +307,34 @@ async function startBaileys() {
                 qrcode.toDataURL(qr, (err, url) => {
                     if(!err) qrCodeDataUrl = url;
                 });
-                addLog("Nuovo QR Code generato");
+                addLog("Nuovo QR Code generato (Scan Needed)");
             }
 
             if(connection === 'close') {
                 isConnected = false;
-                const statusCode = (lastDisconnect?.error)?.output?.statusCode;
-                const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+                const error = lastDisconnect?.error;
+                const statusCode = error?.output?.statusCode;
                 
-                const errReason = lastDisconnect?.error ? lastDisconnect.error.message : 'Unknown';
-                addLog(\`Disconnesso (\${errReason}). Riconnessione: \${shouldReconnect}\`);
-                
-                if(shouldReconnect) {
-                    setTimeout(startBaileys, 3000);
+                addLog(\`Disconnesso: \${error?.message || 'Unknown'} (Code: \${statusCode})\`);
+
+                // RESCUE LOGIC: If Connection Failure (usually bad session/crypto), WIPE IT
+                const isAuthError = statusCode === DisconnectReason.loggedOut;
+                const isGenericConnectionFailure = error?.message?.includes('Connection Failure');
+
+                if (isAuthError || isGenericConnectionFailure) {
+                     addLog("⚠️ ERRORE CRITICO SESSIONE. Reset automatico...");
+                     if(fs.existsSync(AUTH_DIR)) fs.rmSync(AUTH_DIR, { recursive: true, force: true });
+                     setTimeout(startBaileys, 2000);
                 } else {
-                    addLog("Sessione Invalida. Reset...");
-                    if(fs.existsSync(AUTH_DIR)) fs.rmSync(AUTH_DIR, { recursive: true, force: true });
-                    setTimeout(startBaileys, 3000);
+                     // Normal reconnect
+                     setTimeout(startBaileys, 5000);
                 }
+
             } else if(connection === 'open') {
                 isConnected = true;
                 qrCodeDataUrl = '';
                 statusMessage = "CONNESSO";
-                addLog(">>> DISPOSITIVO CONNESSO (Low Memory Mode) <<<");
+                addLog(">>> DISPOSITIVO CONNESSO (V13 Stable) <<<");
             }
         });
 
@@ -345,13 +349,12 @@ async function startBaileys() {
                 const textBody = msg.message.conversation || msg.message.extendedTextMessage?.text;
                 
                 if(!textBody) continue;
-                addLog(\`Msg: \${textBody.substring(0, 20)}...\`);
+                addLog(\`Msg: \${textBody.substring(0, 15)}...\`);
 
                 try {
                     if(ai) {
                         await sock.readMessages([msg.key]);
-                        await sock.sendPresenceUpdate('composing', remoteJid);
-                        await delay(1500); 
+                        await delay(1000); 
                         
                         const response = await ai.models.generateContent({
                             model: 'gemini-2.5-flash',
@@ -373,7 +376,7 @@ async function startBaileys() {
         });
 
     } catch (e) {
-        addLog("CRASH: " + e.message);
+        addLog("CRASH STARTUP: " + e.message);
         setTimeout(startBaileys, 5000);
     }
 }
@@ -481,25 +484,25 @@ async function startBaileys() {
                 </div>
 
                 {/* Export Real Bot Section */}
-                <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl shadow-lg border border-slate-700 p-6 text-white relative overflow-hidden">
+                <div className="bg-gradient-to-br from-fuchsia-900 to-purple-900 rounded-xl shadow-lg border border-fuchsia-700 p-6 text-white relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-8 opacity-10">
                         <Github className="w-32 h-32" />
                     </div>
-                    <h3 className="text-lg font-bold mb-2 flex items-center text-emerald-400">
+                    <h3 className="text-lg font-bold mb-2 flex items-center text-fuchsia-300">
                         <Download className="w-5 h-5 mr-2" />
-                        Download Server V12 (Render Fix)
+                        Download Server V13 (Rescue Mode)
                     </h3>
                     <p className="text-slate-300 text-sm mb-6 max-w-xl">
-                        Versione ottimizzata per Render.com (Free Tier). Risolve i crash di memoria e il QR Code loop.
+                        Versione d'emergenza. Risolve il "Connection Failure Loop" su Render pulendo automaticamente la sessione corrotta e forzando Node 20 LTS.
                     </p>
 
                     <div className="flex flex-col sm:flex-row gap-3 relative z-10">
                         <button 
                             onClick={generateServerJs}
-                            className={`flex-1 flex items-center justify-center p-3 rounded-lg border border-slate-600 bg-emerald-900/40 hover:bg-emerald-900/60 transition-colors border-emerald-800/50`}
+                            className={`flex-1 flex items-center justify-center p-3 rounded-lg border border-fuchsia-500 bg-fuchsia-900/40 hover:bg-fuchsia-800/60 transition-colors`}
                         >
-                            <FileCode className="w-4 h-4 mr-2 text-emerald-400" />
-                            <span className="font-bold text-sm">server.js (V12)</span>
+                            <FileCode className="w-4 h-4 mr-2 text-fuchsia-300" />
+                            <span className="font-bold text-sm">server.js (V13)</span>
                         </button>
                         
                         <button 
@@ -507,7 +510,7 @@ async function startBaileys() {
                              className="flex-1 flex items-center justify-center p-3 rounded-lg border border-slate-600 bg-slate-700 hover:bg-slate-600 transition-colors"
                         >
                             <FileJson className="w-4 h-4 mr-2 text-yellow-400" />
-                            <span className="font-bold text-sm">package.json</span>
+                            <span className="font-bold text-sm">package.json (V13)</span>
                         </button>
                     </div>
                 </div>
@@ -635,26 +638,23 @@ async function startBaileys() {
                  <div className="bg-slate-100 p-4 rounded-lg border border-slate-200">
                     <h4 className="font-bold text-slate-800 mb-2">1. Prepara i file</h4>
                     <ul className="list-disc list-inside space-y-1">
-                        <li>Scarica <code>server.js</code> (V12) e <code>package.json</code> da qui.</li>
-                        <li>Crea un nuovo <strong>Repository GitHub</strong>.</li>
-                        <li>Carica questi 2 file nel repo.</li>
+                        <li>Scarica <code>server.js</code> (V13) e <code>package.json</code> da qui.</li>
+                        <li>Carica questi 2 file nel tuo Repository GitHub.</li>
                     </ul>
                  </div>
 
                  <div className="bg-slate-100 p-4 rounded-lg border border-slate-200">
                     <h4 className="font-bold text-slate-800 mb-2">2. Deploy su Render</h4>
                     <ul className="list-disc list-inside space-y-1">
-                        <li>Vai su <a href="https://render.com" target="_blank" className="text-blue-600 underline">Render.com</a> e crea "New Web Service".</li>
-                        <li>Collega il tuo Repo GitHub.</li>
-                        <li>Runtime: <strong>Node</strong></li>
-                        <li>Build Command: <code>npm install</code></li>
-                        <li>Start Command: <code>node server.js</code></li>
-                        <li>Aggiungi Env Var: <code>API_KEY</code> = <code>TuaChiaveGemini</code></li>
+                        <li>Vai su <a href="https://render.com" target="_blank" className="text-blue-600 underline">Render.com</a> Dashboard.</li>
+                        <li>Seleziona il progetto.</li>
+                        <li>Clicca <strong>Manual Deploy &rarr; Clear Build Cache & Deploy</strong>.</li>
+                        <li>(Questo è necessario per pulire i file corrotti delle versioni precedenti).</li>
                     </ul>
                  </div>
                  
                  <p className="font-bold text-emerald-600">
-                     Render ti darà un URL (es. https://bot.onrender.com). Incollalo nella dashboard qui sotto!
+                     Il server dovrebbe tornare operativo in 2-3 minuti.
                  </p>
               </div>
               
