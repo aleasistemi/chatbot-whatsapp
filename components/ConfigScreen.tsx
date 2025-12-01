@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { BotAccount, DEFAULT_INSTRUCTION } from '../types';
-import { Save, RefreshCw, ChevronDown, Check, Smartphone, Cloud, UploadCloud, Loader2, Power, Key, ExternalLink, ShieldAlert, Eye, EyeOff, HelpCircle, X, Server, FileUp, Globe, MonitorOff, Download, FileJson, FileCode, Terminal, Link as LinkIcon, Zap, Trash2, Cpu, Settings } from 'lucide-react';
+import { Save, RefreshCw, ChevronDown, Check, Smartphone, Cloud, UploadCloud, Loader2, Power, Key, ExternalLink, ShieldAlert, Eye, EyeOff, HelpCircle, X, Server, FileUp, Globe, MonitorOff, Download, FileJson, FileCode, Terminal, Link as LinkIcon, Zap, Trash2, Cpu, Settings, Box } from 'lucide-react';
 
 interface ConfigScreenProps {
   account: BotAccount;
@@ -113,7 +113,7 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
     }
   };
 
-  // --- GENERATION LOGIC FOR REAL SERVER CODE (BAILEYS EDITION V7.0 - NPM FIX) ---
+  // --- GENERATION LOGIC FOR REAL SERVER CODE (BAILEYS EDITION V8.0 - NO GIT) ---
   const downloadFile = (filename: string, content: string) => {
     const element = document.createElement('a');
     const file = new Blob([content], {type: 'text/plain'});
@@ -125,23 +125,23 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
   };
 
   const generateNpmrc = () => {
-    // This file tells npm to ignore dev dependencies and git checks
+    // V8.0: Strict Production & Registry Only (No Git SSH)
     const content = `production=true
 audit=false
 fund=false
 save=false
-progress=false
-loglevel=error
+package-lock=false
+registry=https://registry.npmjs.org/
 `;
     downloadFile('.npmrc', content);
   };
 
   const generatePackageJson = () => {
-    // V7.0: Explicitly removed problematic entries
+    // V8.0: Added OVERRIDES to block eslint-config git fetch
     const pkg = {
-      "name": `whatsapp-bot-v7-prod`,
-      "version": "7.0.0",
-      "description": "Bot WhatsApp V7 (Production)",
+      "name": `whatsapp-bot-v8-nogit`,
+      "version": "8.0.0",
+      "description": "Bot WhatsApp V8 (No Git Edition)",
       "main": "server.js",
       "scripts": {
         "start": "node server.js"
@@ -152,6 +152,9 @@ loglevel=error
         "@google/genai": "^1.30.0",
         "pino": "^7.0.0"
       },
+      "overrides": {
+        "eslint-config": "0.0.0" 
+      },
       "engines": {
         "node": ">=18.0.0"
       }
@@ -161,8 +164,8 @@ loglevel=error
 
   const generateServerJs = () => {
     const content = `/**
- * BOT WA V7.0 - PRODUCTION FIX
- * Fixes: NPM Fork Error, Memory Limits
+ * BOT WA V8.0 - NO GIT EDITION
+ * Fixes: SSH Permission Denied, NPM Git Errors
  */
 
 const http = require('http');
@@ -264,9 +267,9 @@ const server = http.createServer((req, res) => {
 
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(\`<html><body style="font-family:sans-serif;background:#2d3748;color:white;text-align:center;padding:50px;">
-        <div style="background:#1a202c;padding:30px;border-radius:15px;max-width:600px;margin:auto;border:1px solid #4a5568;">
-            <h1 style="color:#48bb78;">Bot V7.0 Online</h1>
-            <p>Stato: <strong>\${isConnected ? '✅ CONNESSO' : '⚠️ ' + statusMessage}</strong></p>
+        <div style="background:#1a202c;padding:30px;border-radius:15px;max-width:600px;margin:auto;border:1px solid #d53f8c;">
+            <h1 style="color:#d53f8c;">Bot V8.0 NO-GIT</h1>
+            <p>Status: <strong>\${isConnected ? '✅ CONNESSO' : '⚠️ ' + statusMessage}</strong></p>
             <div style="background:black;padding:15px;border-radius:8px;font-family:monospace;text-align:left;font-size:12px;color:#00ff00;max-height:300px;overflow-y:auto;">
                \${logs.join('<br>')}
             </div>
@@ -282,13 +285,13 @@ server.listen(PORT, () => {
 // 2. WHATSAPP LOGIC
 async function startBaileys() {
     addLog("Avvio Motore WhatsApp...");
-    const { state, saveCreds } = await useMultiFileAuthState('auth_info_v7');
+    const { state, saveCreds } = await useMultiFileAuthState('auth_info_v8');
     
     const sock = makeWASocket({
         auth: state,
         printQRInTerminal: true,
         logger: pino({ level: 'silent' }),
-        browser: ["${account.name}", "FastComet", "7.0"],
+        browser: ["${account.name}", "FastComet", "8.0"],
         connectTimeoutMs: 60000,
         syncFullHistory: false
     });
@@ -416,10 +419,10 @@ async function startBaileys() {
           <div className="flex items-center space-x-3">
              <button
                 onClick={() => setShowDeployGuide(true)}
-                className="flex items-center px-3 py-2 bg-slate-800 text-white rounded-lg text-xs font-bold hover:bg-slate-700 transition-colors shadow-sm"
+                className="flex items-center px-3 py-2 bg-pink-600 text-white rounded-lg text-xs font-bold hover:bg-pink-700 transition-colors shadow-sm"
              >
                 <Settings className="w-3.5 h-3.5 mr-2" />
-                Guida V7.0
+                Guida V8.0
              </button>
              
              <div className={`flex items-center px-3 py-1.5 rounded-full border text-xs font-bold uppercase tracking-wide ml-2 ${
@@ -467,39 +470,39 @@ async function startBaileys() {
                 </div>
 
                 {/* Export Real Bot Section */}
-                <div className="bg-slate-900 rounded-xl shadow-lg border border-slate-800 p-6 text-white relative overflow-hidden">
+                <div className="bg-pink-950 rounded-xl shadow-lg border border-pink-900 p-6 text-white relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-8 opacity-10">
-                        <Cpu className="w-32 h-32" />
+                        <Box className="w-32 h-32" />
                     </div>
-                    <h3 className="text-lg font-bold mb-2 flex items-center text-emerald-300">
+                    <h3 className="text-lg font-bold mb-2 flex items-center text-pink-300">
                         <Download className="w-5 h-5 mr-2" />
-                        Step 1: Installazione V7.0 (Fix NPM)
+                        Step 1: Installazione V8.0 (No-Git Edition)
                     </h3>
-                    <p className="text-slate-400 text-sm mb-6 max-w-xl">
-                        Versione <strong>7.0 PRODUCTION</strong>. Include il fix per l'errore "Cannot Fork/EAGAIN".
-                        <br/><span className="text-yellow-400 text-xs">⚠️ Devi caricare tutti e 3 i file, incluso .npmrc!</span>
+                    <p className="text-slate-300 text-sm mb-6 max-w-xl">
+                        Versione <strong>8.0 BLINDATA</strong>. Impedisce errori SSH/Git su cPanel.
+                        <br/><span className="text-yellow-400 text-xs font-bold">⚠️ RICORDA: Imposta NODE_ENV=production nel cPanel!</span>
                     </p>
 
                     <div className="flex flex-col sm:flex-row gap-3 relative z-10">
                         <button 
                             onClick={generateServerJs}
-                            className={`flex-1 flex items-center justify-center p-3 rounded-lg border border-slate-700 hover:bg-slate-800 transition-colors`}
+                            className={`flex-1 flex items-center justify-center p-3 rounded-lg border border-pink-700 bg-pink-900/30 hover:bg-pink-800 transition-colors`}
                         >
-                            <FileCode className="w-4 h-4 mr-2 text-blue-400" />
+                            <FileCode className="w-4 h-4 mr-2 text-pink-200" />
                             <span className="font-bold text-sm">1. server.js</span>
                         </button>
                         
                         <button 
                              onClick={generatePackageJson}
-                             className="flex-1 flex items-center justify-center p-3 rounded-lg border border-slate-700 hover:bg-slate-800 transition-colors"
+                             className="flex-1 flex items-center justify-center p-3 rounded-lg border border-pink-700 bg-pink-900/30 hover:bg-pink-800 transition-colors"
                         >
-                            <FileJson className="w-4 h-4 mr-2 text-green-400" />
+                            <FileJson className="w-4 h-4 mr-2 text-pink-200" />
                             <span className="font-bold text-sm">2. package.json</span>
                         </button>
 
                         <button 
                              onClick={generateNpmrc}
-                             className="flex-1 flex items-center justify-center p-3 rounded-lg border border-yellow-800/50 bg-yellow-900/20 hover:bg-yellow-900/40 transition-colors"
+                             className="flex-1 flex items-center justify-center p-3 rounded-lg border border-yellow-700 bg-yellow-900/30 hover:bg-yellow-800 transition-colors"
                         >
                             <Settings className="w-4 h-4 mr-2 text-yellow-400" />
                             <span className="font-bold text-sm">3. .npmrc (Fix)</span>
@@ -607,18 +610,18 @@ async function startBaileys() {
             </div>
         </div>
 
-        {/* Modal Guida FastComet V7.0 */}
+        {/* Modal Guida FastComet V8.0 */}
         {showDeployGuide && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-0 overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]">
-              <div className="bg-slate-800 p-6 text-white flex justify-between items-center shrink-0">
+              <div className="bg-pink-900 p-6 text-white flex justify-between items-center shrink-0">
                   <div className="flex items-center space-x-3">
                      <div className="bg-white/20 p-2 rounded-lg">
                         <Terminal className="w-6 h-6 text-white" />
                      </div>
                      <div>
-                        <h2 className="text-xl font-bold">Guida Installazione V7.0</h2>
-                        <p className="text-slate-300 text-sm">Risoluzione Errore "Cannot Fork/NPM"</p>
+                        <h2 className="text-xl font-bold">Guida Installazione V8.0</h2>
+                        <p className="text-pink-200 text-sm">Risoluzione Errore SSH/Git (Permission Denied)</p>
                      </div>
                   </div>
                   <button onClick={() => setShowDeployGuide(false)} className="bg-white/10 hover:bg-white/20 p-2 rounded-full transition-colors">
@@ -629,20 +632,25 @@ async function startBaileys() {
               <div className="p-8 overflow-y-auto">
                  <div className="bg-yellow-50 border border-yellow-100 rounded-lg p-4 mb-6 text-sm text-yellow-800 flex items-start">
                     <ShieldAlert className="w-5 h-5 mr-3 shrink-0 mt-0.5" />
-                    <p>
-                        <strong>IMPORTANTE:</strong> L'errore "Code 128 / Cannot fork" indica che il server FastComet ha finito la memoria durante l'installazione delle dipendenze di sviluppo.
-                        Il file <code>.npmrc</code> serve a prevenire questo.
-                    </p>
+                    <div>
+                        <p className="font-bold mb-1">ERRORE CRITICO "Code 128 / Git":</p>
+                        <p>
+                           NPM sta cercando di scaricare da GitHub, ma il server non ha i permessi.
+                           La V8.0 blocca questo comportamento.
+                        </p>
+                    </div>
                  </div>
 
-                 <h3 className="font-bold text-slate-900 mb-4">Procedura V7.0:</h3>
+                 <h3 className="font-bold text-slate-900 mb-4">Procedura Obbligatoria V8.0:</h3>
                  <ol className="list-decimal list-inside space-y-4 text-slate-600 ml-2 text-sm">
-                    <li>Scarica TUTTI e 3 i file: <code>server.js</code>, <code>package.json</code> e <code>.npmrc</code>.</li>
-                    <li>Accedi al File Manager di FastComet (cartella del bot).</li>
-                    <li className="font-bold text-red-600">Cancella TUTTO il contenuto della cartella (incluso node_modules).</li>
-                    <li>Carica i 3 file. <span className="text-xs text-slate-500">(Se non vedi .npmrc, attiva "Show Hidden Files" nelle impostazioni in alto a destra).</span></li>
-                    <li>Vai su "Setup Node.js App".</li>
-                    <li>Clicca <strong>Run NPM Install</strong> (Dovrebbe funzionare ora).</li>
+                    <li>Scarica i 3 nuovi file V8.0.</li>
+                    <li><strong>Cancella TUTTO</strong> nel File Manager (non sovrascrivere, cancella prima!).</li>
+                    <li>Carica i 3 file (`server.js`, `package.json`, `.npmrc`).</li>
+                    <li className="bg-blue-50 p-2 rounded border border-blue-100 text-blue-800">
+                        Vai su "Setup Node.js App" → <strong>Environment Variables</strong>.<br/>
+                        Aggiungi: <code>NODE_ENV</code> = <code>production</code>
+                    </li>
+                    <li>Clicca <strong>Run NPM Install</strong>.</li>
                     <li>Clicca <strong>Restart</strong>.</li>
                  </ol>
               </div>
@@ -650,7 +658,7 @@ async function startBaileys() {
               <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end">
                  <button 
                     onClick={() => setShowDeployGuide(false)}
-                    className="px-6 py-2 bg-slate-900 text-white rounded-lg font-bold hover:bg-slate-800 transition-colors"
+                    className="px-6 py-2 bg-pink-900 text-white rounded-lg font-bold hover:bg-pink-800 transition-colors"
                  >
                     Ho capito
                  </button>

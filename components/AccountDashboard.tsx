@@ -65,8 +65,6 @@ export const AccountDashboard: React.FC<AccountDashboardProps> = ({
                                 serverStatus: 'online', 
                                 lastActive: new Date() 
                             });
-                            // Optional: Close modal automatically or show success state
-                            // setConnectionStep('none');
                         }
                     }
                 }
@@ -290,7 +288,7 @@ export const AccountDashboard: React.FC<AccountDashboardProps> = ({
                   )}
                   
                   <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                     <span className="text-xs text-slate-400">Node: v5.0</span>
+                     <span className="text-xs text-slate-400">Node: v8.0</span>
                      <div className="flex space-x-2">
                         {acc.status === 'connected' && (
                             <button onClick={() => disconnect(acc)} title="Disconnetti Sessione Remota" className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors">
@@ -395,17 +393,17 @@ export const AccountDashboard: React.FC<AccountDashboardProps> = ({
                 <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-slate-100">
                     <button 
                         onClick={() => setConnectionStep('production')}
-                        className="p-8 hover:bg-purple-50 transition-colors text-left group flex flex-col h-full"
+                        className="p-8 hover:bg-pink-50 transition-colors text-left group flex flex-col h-full"
                     >
-                        <div className="mb-4 bg-purple-100 w-12 h-12 rounded-xl flex items-center justify-center text-purple-600 group-hover:scale-110 transition-transform">
+                        <div className="mb-4 bg-pink-100 w-12 h-12 rounded-xl flex items-center justify-center text-pink-600 group-hover:scale-110 transition-transform">
                             <Server className="w-6 h-6" />
                         </div>
-                        <h3 className="text-lg font-bold text-slate-900 mb-2">Produzione (PlanifyX Style)</h3>
+                        <h3 className="text-lg font-bold text-slate-900 mb-2">Produzione V8.0</h3>
                         <p className="text-sm text-slate-500 mb-4 flex-1">
-                            Genera istanza cloud e collega il numero reale tramite QR Code. Funziona 24/7.
+                            Genera istanza cloud e collega il numero reale. Fix SSH/Git incluso.
                         </p>
-                        <div className="flex items-center text-purple-700 font-bold text-sm">
-                            Avvia Link V6.0 <Globe className="w-4 h-4 ml-2" />
+                        <div className="flex items-center text-pink-700 font-bold text-sm">
+                            Avvia Link <Globe className="w-4 h-4 ml-2" />
                         </div>
                     </button>
 
