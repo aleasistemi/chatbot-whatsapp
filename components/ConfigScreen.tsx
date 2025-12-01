@@ -149,9 +149,9 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
 
   const generateServerJs = () => {
     const content = `/**
- * BOT WA V6.0 - LIGHTWEIGHT API EDITION
- * Fixes: npm EAGAIN error, Memory leaks, Missing libraries
- * Features: Remote QR Fetching
+ * BOT WA V6.1 - AUTO-CLEAN EDITION
+ * Fixes: .wwebjs_auth cleanup, npm EAGAIN, Memory leaks
+ * Features: Remote QR, Auto Cleanup
  */
 
 const http = require('http');
@@ -164,6 +164,16 @@ const path = require('path');
 
 const PORT = process.env.PORT || 3000;
 const CONFIG_FILE = path.join(__dirname, 'bot_config.json');
+
+// --- AUTO-CLEANUP VECCHIE SESSIONI ---
+try {
+    const oldSession = path.join(__dirname, '.wwebjs_auth');
+    if (fs.existsSync(oldSession)) {
+        console.log("Rilevata vecchia sessione Puppeteer. Pulizia in corso...");
+        fs.rmSync(oldSession, { recursive: true, force: true });
+        console.log("Pulizia completata.");
+    }
+} catch(e) { console.error("Errore Auto-Cleanup:", e); }
 
 // --- GESTIONE CONFIGURAZIONE PERSISTENTE ---
 let botConfig = {
@@ -254,9 +264,12 @@ const server = http.createServer((req, res) => {
     res.end(\`
         <html><body style="font-family:sans-serif;background:#f0f2f5;text-align:center;padding:50px;">
         <div style="background:white;padding:30px;border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,0.1);max-width:500px;margin:auto;">
-            <h1 style="color:#00a884;">Server V6.0 Light</h1>
+            <h1 style="color:#00a884;">Server V6.1 Clean</h1>
             <p>Stato: <strong>\${isConnected ? '✅ ONLINE' : '⏳ ' + statusMessage}</strong></p>
             <p style="font-size:12px;color:#666;">API Endpoint: /api/qr</p>
+            <div style="margin-top:20px;padding:10px;background:#eee;border-radius:5px;font-size:10px;text-align:left;">
+               \${logs.join('<br>')}
+            </div>
         </div>
         </body></html>
     \`);
@@ -467,7 +480,7 @@ async function startBaileys() {
                             <FileCode className="w-5 h-5 mr-3 text-blue-400" />
                             <div className="text-left">
                                 <div className="font-bold text-sm">Scarica server.js</div>
-                                <div className="text-xs text-slate-500">v6.0 API Enabled</div>
+                                <div className="text-xs text-slate-500">v6.1 Auto-Clean</div>
                             </div>
                         </button>
                         
@@ -594,8 +607,8 @@ async function startBaileys() {
                         <Terminal className="w-6 h-6 text-white" />
                      </div>
                      <div>
-                        <h2 className="text-xl font-bold">Aggiornamento V6.0 (Light)</h2>
-                        <p className="text-slate-300 text-sm">Fix "npm error code EAGAIN"</p>
+                        <h2 className="text-xl font-bold">Installazione Pulita V6.0</h2>
+                        <p className="text-slate-300 text-sm">Guida alla pulizia file obsoleti</p>
                      </div>
                   </div>
                   <button onClick={() => setShowDeployGuide(false)} className="bg-white/10 hover:bg-white/20 p-2 rounded-full transition-colors">
@@ -607,18 +620,19 @@ async function startBaileys() {
                  <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-6 text-sm text-blue-800 flex items-start">
                     <Globe className="w-5 h-5 mr-3 shrink-0 mt-0.5" />
                     <p>
-                        <strong>IMPORTANTE:</strong> <br/>
-                        Ho rimosso tutte le dipendenze inutili dal package.json. Questo risolverà il problema di memoria su FastComet.
+                        <strong>CONSIGLIO ESPERTO:</strong> <br/>
+                        Per evitare conflitti con la vecchia versione (Puppeteer), è fondamentale eliminare le cartelle residue.
                     </p>
                  </div>
 
-                 <h3 className="font-bold text-slate-900 mb-4">Procedura di Ripristino:</h3>
+                 <h3 className="font-bold text-slate-900 mb-4">Procedura "Tabula Rasa":</h3>
                  <ol className="list-decimal list-inside space-y-4 text-slate-600 ml-2 text-sm">
                     <li>Scarica i 2 nuovi file (server.js e package.json).</li>
-                    <li>Accedi al File Manager di FastComet.</li>
-                    <li><strong>Cancella la cartella <code>node_modules</code> esistente.</strong> (Fondamentale!)</li>
-                    <li>Carica i nuovi file sovrascrivendo i vecchi.</li>
-                    <li>Riavvia l'applicazione Node.js dal pannello di controllo.</li>
+                    <li>Accedi al File Manager di FastComet (cartella del bot).</li>
+                    <li className="font-bold text-red-600">Cancella la cartella <code>.wwebjs_auth</code> (Vecchia Sessione).</li>
+                    <li className="font-bold text-red-600">Cancella la cartella <code>node_modules</code>.</li>
+                    <li>Puoi cancellare anche <code>tmp</code> se presente.</li>
+                    <li>Carica i nuovi file e avvia <code>Run NPM Install</code>.</li>
                  </ol>
               </div>
               
