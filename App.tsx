@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { ConfigScreen } from './components/ConfigScreen';
@@ -77,11 +78,17 @@ const App: React.FC = () => {
     setSelectedAccountId(null);
   };
 
+  // Helper to generate PlanifyX style Instance ID
+  const generateInstanceId = () => {
+    return Array.from({length: 13}, () => Math.floor(Math.random() * 16).toString(16)).join('').toUpperCase();
+  };
+
   const handleCreateAccount = (name: string, phoneNumber: string) => {
     if (!currentUser) return;
     
     const newAccount: BotAccount = {
       id: Date.now().toString(),
+      instanceId: generateInstanceId(), // Generates something like 692C275AE02BB
       userId: currentUser.id, // Bind to user
       name,
       phoneNumber,

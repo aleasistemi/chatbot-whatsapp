@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BotAccount, DEFAULT_INSTRUCTION } from '../types';
-import { Save, RefreshCw, ChevronDown, Check, Smartphone, Cloud, UploadCloud, Loader2, Power, Key, ExternalLink, ShieldAlert, Eye, EyeOff, HelpCircle, X, Server, FileUp, Globe, MonitorOff, Download, FileJson, FileCode, Terminal, Link as LinkIcon, Zap, Trash2 } from 'lucide-react';
+import { Save, RefreshCw, ChevronDown, Check, Smartphone, Cloud, UploadCloud, Loader2, Power, Key, ExternalLink, ShieldAlert, Eye, EyeOff, HelpCircle, X, Server, FileUp, Globe, MonitorOff, Download, FileJson, FileCode, Terminal, Link as LinkIcon, Zap, Trash2, Cpu } from 'lucide-react';
 
 interface ConfigScreenProps {
   account: BotAccount;
@@ -19,9 +19,10 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
   const [showApiKey, setShowApiKey] = useState(false);
   const [showDeployGuide, setShowDeployGuide] = useState(false);
   
-  // Simulation states for "Cloud Deploy"
+  // Real deployment states
   const [isDeploying, setIsDeploying] = useState(false);
-  const [lastDeployed, setLastDeployed] = useState<Date | null>(new Date());
+  const [deployStatus, setDeployStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [errorMessage, setErrorMessage] = useState('');
 
   // When switching accounts, update local state
   useEffect(() => {
@@ -29,13 +30,14 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
     setIsActive(account.isActive);
     setIsDirty(false);
     setIsDropdownOpen(false);
-    setLastDeployed(new Date()); 
+    setDeployStatus('idle');
     setServerUrl(localStorage.getItem(`server_url_${account.id}`) || '');
   }, [account.id]);
 
   const handleConfigChange = (field: keyof typeof localConfig, value: any) => {
     setLocalConfig(prev => ({ ...prev, [field]: value }));
     setIsDirty(true);
+    setDeployStatus('idle');
   };
 
   const handleUrlChange = (val: string) => {
@@ -43,25 +45,68 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
       localStorage.setItem(`server_url_${account.id}`, val);
   };
 
-  const handleDeploy = () => {
+  // --- REAL DEPLOYMENT LOGIC ---
+  const handleDeploy = async () => {
     if (!localConfig.apiKey) {
       alert("Devi inserire una API Key valida prima di attivare il server.");
       return;
     }
 
-    setIsDeploying(true);
+    // Save locally first to update UI
+    onSave({
+        ...account,
+        isActive,
+        config: localConfig
+    });
     
-    // Simulate server delay
-    setTimeout(() => {
-        onSave({
-            ...account,
-            isActive,
-            config: localConfig
-        });
+    // If no server URL is provided, we treat it as a "Local Save" for the simulator
+    if (!serverUrl) {
         setIsDirty(false);
+        setDeployStatus('success');
+        setTimeout(() => setDeployStatus('idle'), 3000);
+        return;
+    }
+
+    // REAL SERVER SYNC
+    setIsDeploying(true);
+    setErrorMessage('');
+    
+    try {
+        // Clean URL
+        const cleanUrl = serverUrl.replace(/\/$/, "");
+        const endpoint = `${cleanUrl}/api/update-config`;
+
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                apiKey: localConfig.apiKey,
+                systemInstruction: localConfig.systemInstruction,
+                temperature: localConfig.temperature
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`Server Error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (data.success) {
+            setIsDirty(false);
+            setDeployStatus('success');
+        } else {
+            throw new Error(data.message || "Errore sconosciuto dal server");
+        }
+
+    } catch (error: any) {
+        console.error("Deploy failed:", error);
+        setDeployStatus('error');
+        setErrorMessage(error.message || "Impossibile contattare il server. Verifica l'URL.");
+    } finally {
         setIsDeploying(false);
-        setLastDeployed(new Date());
-    }, 1500);
+    }
   };
 
   const handleReset = () => {
@@ -74,7 +119,7 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
     }
   };
 
-  // --- GENERATION LOGIC FOR REAL SERVER CODE (BAILEYS EDITION V4.1) ---
+  // --- GENERATION LOGIC FOR REAL SERVER CODE (BAILEYS EDITION V6.0 - REAL API) ---
   const downloadFile = (filename: string, content: string) => {
     const element = document.createElement('a');
     const file = new Blob([content], {type: 'text/plain'});
@@ -87,9 +132,9 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
 
   const generatePackageJson = () => {
     const pkg = {
-      "name": `whatsapp-bot-v4`,
-      "version": "4.1.0",
-      "description": "Bot WhatsApp Baileys V4.1 (No Puppeteer)",
+      "name": `whatsapp-bot-v6-realtime`,
+      "version": "6.0.0",
+      "description": "Bot WhatsApp V6 (API Enabled)",
       "main": "server.js",
       "scripts": {
         "start": "node server.js"
@@ -109,11 +154,10 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ account, allAccounts
 
   const generateServerJs = () => {
     const content = `/**
- * BOT WA V4.1 - LIGHTWEIGHT EDITION (NO PUPPETEER/CHROME)
+ * BOT WA V6.0 - REALTIME API EDITION
  * Motore: Baileys (WebSocket)
- * Compatibile con FastComet/cPanel Shared Hosting
- * Configurazione: ${account.name}
- * Generato il: ${new Date().toLocaleString()}
+ * Funzionalità: API Endpoint per aggiornamento config remoto
+ * Configurazione Iniziale: ${account.name}
  */
 
 const http = require('http');
@@ -122,16 +166,48 @@ const qrcode = require('qrcode');
 const { GoogleGenAI } = require("@google/genai");
 const pino = require('pino');
 const fs = require('fs');
+const path = require('path');
 
-// --- SERVER WEB PER CPANEL KEEP-ALIVE ---
 const PORT = process.env.PORT || 3000;
+const CONFIG_FILE = path.join(__dirname, 'bot_config.json');
+
+// --- GESTIONE CONFIGURAZIONE PERSISTENTE ---
+let botConfig = {
+    apiKey: "${localConfig.apiKey || ''}",
+    systemInstruction: \`${localConfig.systemInstruction.replace(/`/g, '\\`').replace(/\n/g, '\\n')}\`,
+    temperature: ${localConfig.temperature}
+};
+
+// Carica config salvata se esiste
+if (fs.existsSync(CONFIG_FILE)) {
+    try {
+        const saved = fs.readFileSync(CONFIG_FILE, 'utf8');
+        botConfig = { ...botConfig, ...JSON.parse(saved) };
+        console.log("Configurazione caricata da file.");
+    } catch(e) { console.error("Errore lettura config:", e); }
+}
+
+function saveConfig() {
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(botConfig, null, 2));
+}
 
 // Stato Globale
 let qrCodeDataUrl = '';
-let statusMessage = 'Inizializzazione V4.1...';
+let statusMessage = 'Avvio V6.0 API...';
 let isConnected = false;
 let logs = [];
-let retryCount = 0;
+let ai = null;
+
+function initAI() {
+    if(botConfig.apiKey) {
+        try {
+            ai = new GoogleGenAI({ apiKey: botConfig.apiKey });
+            addLog("AI Inizializzata/Aggiornata");
+        } catch(e) { addLog("Errore Init AI: " + e.message); }
+    }
+}
+// Init AI all'avvio
+initAI();
 
 function addLog(msg) {
     const time = new Date().toLocaleTimeString();
@@ -140,50 +216,76 @@ function addLog(msg) {
     console.log(msg);
 }
 
-// Configurazione AI
-const API_KEY = "${localConfig.apiKey || ''}";
-const SYSTEM_INSTRUCTION = \`${localConfig.systemInstruction.replace(/`/g, '\\`')}\`;
-let ai;
-try {
-    ai = new GoogleGenAI({ apiKey: API_KEY });
-} catch (e) { addLog("Errore AI config: " + e.message); }
-
-
-// 1. Web Server UI (BACKGROUND AZZURRO PER DISTINGUERE V4)
+// 1. SERVER HTTP CON API PER DASHBOARD
 const server = http.createServer((req, res) => {
+    // Gestione CORS per permettere alla Dashboard di comunicare
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+    if (req.method === 'OPTIONS') {
+        res.writeHead(204);
+        res.end();
+        return;
+    }
+
+    // API: Aggiorna Configurazione (Chiamata dal tasto "Deploy")
+    if (req.url === '/api/update-config' && req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => { body += chunk.toString(); });
+        req.on('end', () => {
+            try {
+                const data = JSON.parse(body);
+                if(data.apiKey) botConfig.apiKey = data.apiKey;
+                if(data.systemInstruction) botConfig.systemInstruction = data.systemInstruction;
+                if(data.temperature) botConfig.temperature = data.temperature;
+                
+                saveConfig();
+                initAI(); // Reinicializza AI con nuovi parametri
+                
+                addLog("CONFIGURAZIONE AGGIORNATA DA DASHBOARD REMOTA");
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: true, message: "Configurazione aggiornata" }));
+            } catch (e) {
+                res.writeHead(400);
+                res.end(JSON.stringify({ success: false, message: "Invalid JSON" }));
+            }
+        });
+        return;
+    }
+
+    // INTERFACCIA WEB (Solo lettura)
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    
     let html = \`
     <!DOCTYPE html>
     <html>
         <head>
-            <title>Bot V4.1: ${account.name}</title>
+            <title>Bot V6.0: ${account.name}</title>
             <meta http-equiv="refresh" content="5">
             <meta name="viewport" content="width=device-width, initial-scale=1">
             <style>
-                body { font-family: sans-serif; background: #e0f2fe; color: #0c4a6e; padding: 20px; text-align: center; }
-                .card { background: white; max-width: 600px; margin: 0 auto; padding: 30px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); border: 1px solid #bae6fd; }
-                .status-badge { display: inline-block; padding: 8px 16px; border-radius: 20px; font-weight: bold; margin-bottom: 20px; font-size: 14px; }
-                .online { background: #d9fdd3; color: #008069; }
-                .wait { background: #f0f9ff; color: #0284c7; border: 1px solid #bae6fd; }
-                .log-box { text-align: left; background: #0f172a; color: #38bdf8; padding: 15px; border-radius: 8px; font-size: 11px; margin-top: 20px; max-height: 300px; overflow-y: auto; font-family: monospace; white-space: pre-wrap; }
-                h1 { color: #0369a1; }
+                body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #fff; padding: 20px; text-align: center; }
+                .card { background: #1e293b; color: #e2e8f0; max-width: 600px; margin: 0 auto; padding: 30px; border-radius: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); border: 1px solid #334155; }
+                .status-badge { display: inline-block; padding: 8px 16px; border-radius: 20px; font-weight: bold; margin-bottom: 20px; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
+                .online { background: #059669; color: #fff; }
+                .wait { background: #d97706; color: #fff; }
+                .log-box { text-align: left; background: #020617; color: #94a3b8; padding: 15px; border-radius: 8px; font-size: 11px; margin-top: 20px; max-height: 300px; overflow-y: auto; font-family: monospace; white-space: pre-wrap; border: 1px solid #1e293b; }
             </style>
         </head>
         <body>
             <div class="card">
-                <h1>💎 ${account.name} (V4.1)</h1>
+                <h1>📡 ${account.name}</h1>
+                <p style="color: #64748b; font-size: 12px;">V6.0 API ENABLED</p>
+                
                 <div class="status-badge \${isConnected ? 'online' : 'wait'}">
-                    \${isConnected ? '✅ ONLINE & ATTIVO' : '⏳ STATO: ' + statusMessage}
+                    \${isConnected ? '✅ ONLINE' : '⏳ ' + statusMessage}
                 </div>
     \`;
 
     if (qrCodeDataUrl && !isConnected) {
         html += \`
-            <div style="background: #fff; padding: 20px; border: 2px dashed #0284c7; border-radius: 10px; margin-bottom: 20px;">
-                <h3 style="color: #0284c7; margin-top: 0;">SCANSIONA ORA IL QR:</h3>
-                <img src="\${qrCodeDataUrl}" alt="QR Code" width="280" />
-                <p>Apri WhatsApp > Impostazioni > Dispositivi collegati</p>
+            <div style="background: #fff; padding: 20px; border-radius: 15px; margin-bottom: 20px; display: inline-block;">
+                <img src="\${qrCodeDataUrl}" alt="QR Code" width="250" />
             </div>
         \`;
     }
@@ -192,10 +294,6 @@ const server = http.createServer((req, res) => {
                 <div class="log-box">
                     \${logs.map(l => \`<div>\${l}</div>\`).join('')}
                 </div>
-                <p style="font-size: 11px; color: #64748b; margin-top: 20px;">
-                   <strong>Engine:</strong> Baileys (WebSocket) • <strong>No Chrome/Puppeteer</strong><br/>
-                   Server Node.js V4.1
-                </p>
             </div>
         </body>
     </html>
@@ -204,21 +302,20 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, () => {
-    addLog(\`WEB SERVER V4.1 STARTED ON PORT \${PORT}\`);
+    addLog(\`SERVER V6.0 LISTENING ON PORT \${PORT}\`);
     startBaileys();
 });
 
-
-// 2. LOGICA BAILEYS (Lightweight WhatsApp)
+// 2. LOGICA BAILEYS
 async function startBaileys() {
-    addLog("Avvio modulo Baileys...");
-    const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
+    addLog("Avvio motore Baileys...");
+    const { state, saveCreds } = await useMultiFileAuthState('auth_info_v6');
     
     const sock = makeWASocket({
         auth: state,
-        printQRInTerminal: false, // Gestiamo noi il QR
-        logger: pino({ level: 'silent' }), // Zittiamo i log interni
-        browser: ["${account.name}", "Chrome", "120.0.6099.199"], // Spoof browser, non lancia Chrome vero!
+        printQRInTerminal: false,
+        logger: pino({ level: 'silent' }),
+        browser: ["${account.name}", "Server", "6.0"],
         connectTimeoutMs: 60000,
     });
 
@@ -226,8 +323,7 @@ async function startBaileys() {
         const { connection, lastDisconnect, qr } = update;
         
         if(qr) {
-            statusMessage = "QR Code Pronto.";
-            addLog("QR Code ricevuto! Visualizzalo sopra.");
+            statusMessage = "QR Code Generato";
             qrcode.toDataURL(qr, (err, url) => {
                 if(!err) qrCodeDataUrl = url;
             });
@@ -235,23 +331,13 @@ async function startBaileys() {
 
         if(connection === 'close') {
             isConnected = false;
-            qrCodeDataUrl = '';
             const shouldReconnect = (lastDisconnect.error)?.output?.statusCode !== DisconnectReason.loggedOut;
-            addLog('Connessione chiusa. Riconnessione: ' + shouldReconnect);
-            statusMessage = "Disconnesso. Riprovo...";
-            
-            if(shouldReconnect) {
-                setTimeout(startBaileys, 3000);
-            } else {
-                addLog("Sessione scaduta (Logout). Cancella cartella 'auth_info_baileys' per riavviare.");
-                statusMessage = "Sessione Scaduta. Riavviare pulito.";
-            }
+            if(shouldReconnect) setTimeout(startBaileys, 3000);
         } else if(connection === 'open') {
             isConnected = true;
             qrCodeDataUrl = '';
-            statusMessage = "Connesso a WhatsApp!";
-            addLog(">>> DISPOSITIVO CONNESSO CON SUCCESSO <<<");
-            retryCount = 0;
+            statusMessage = "Connesso";
+            addLog(">>> DISPOSITIVO CONNESSO <<<");
         }
     });
 
@@ -259,30 +345,30 @@ async function startBaileys() {
 
     sock.ev.on('messages.upsert', async ({ messages, type }) => {
         if(type !== 'notify') return;
-        
         for(const msg of messages) {
-            if(!msg.message || msg.key.fromMe) continue; // Ignora i nostri messaggi
-
+            if(!msg.message || msg.key.fromMe) continue;
             const remoteJid = msg.key.remoteJid;
             const textBody = msg.message.conversation || msg.message.extendedTextMessage?.text;
-
             if(!textBody) continue;
 
-            addLog(\`Messaggio da \${remoteJid.substring(0,6)}...: \${textBody.substring(0, 20)}...\`);
+            addLog(\`Msg da \${remoteJid.substring(0,8)}: \${textBody.substring(0, 15)}...\`);
 
             try {
                 if(ai) {
                     await sock.sendPresenceUpdate('composing', remoteJid);
-                    
+                    // Usa la config dinamica
                     const response = await ai.models.generateContent({
                         model: 'gemini-2.5-flash',
                         contents: textBody,
-                        config: { systemInstruction: SYSTEM_INSTRUCTION }
+                        config: { 
+                            systemInstruction: botConfig.systemInstruction,
+                            temperature: botConfig.temperature 
+                        }
                     });
-                    
-                    const replyText = response.text;
-                    await sock.sendMessage(remoteJid, { text: replyText }, { quoted: msg });
+                    await sock.sendMessage(remoteJid, { text: response.text }, { quoted: msg });
                     addLog("Risposto con AI.");
+                } else {
+                    addLog("⚠️ AI non configurata o Key mancante.");
                 }
             } catch (e) {
                 addLog("Errore risposta AI: " + e.message);
@@ -351,10 +437,10 @@ async function startBaileys() {
           <div className="flex items-center space-x-3">
              <button
                 onClick={() => setShowDeployGuide(true)}
-                className="flex items-center px-3 py-2 bg-indigo-900 text-white rounded-lg text-xs font-bold hover:bg-indigo-800 transition-colors shadow-sm"
+                className="flex items-center px-3 py-2 bg-slate-800 text-white rounded-lg text-xs font-bold hover:bg-slate-700 transition-colors shadow-sm"
              >
                 <Zap className="w-3.5 h-3.5 mr-2 text-yellow-400" />
-                Guida Installazione v4.1
+                Aggiorna V6 (API)
              </button>
              
              <div className={`flex items-center px-3 py-1.5 rounded-full border text-xs font-bold uppercase tracking-wide ml-2 ${
@@ -404,15 +490,14 @@ async function startBaileys() {
                 {/* Export Real Bot Section */}
                 <div className="bg-slate-900 rounded-xl shadow-lg border border-slate-800 p-6 text-white relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-8 opacity-10">
-                        <Zap className="w-32 h-32" />
+                        <Cpu className="w-32 h-32" />
                     </div>
                     <h3 className="text-lg font-bold mb-2 flex items-center text-blue-300">
                         <Download className="w-5 h-5 mr-2" />
-                        Step 1: Scarica File V4.1
+                        Step 1: Installa Server V6.0
                     </h3>
                     <p className="text-slate-400 text-sm mb-6 max-w-xl">
-                        Versione <strong>4.1 Clean Install</strong>. Risolve definitivamente l'errore "Browser Process" usando Baileys. <br/>
-                        <span className="text-yellow-400 font-bold">NOTA: Devi cancellare la cartella node_modules prima di caricare questi file!</span>
+                        Versione <strong>6.0 API EDITION</strong>. Contiene endpoint per aggiornamento remoto. Cancella il vecchio server.js e carica questo.
                     </p>
 
                     <div className="flex flex-col sm:flex-row gap-4 relative z-10">
@@ -424,7 +509,7 @@ async function startBaileys() {
                             <FileCode className="w-5 h-5 mr-3 text-blue-400" />
                             <div className="text-left">
                                 <div className="font-bold text-sm">Scarica server.js</div>
-                                <div className="text-xs text-slate-500">v4.1 Baileys (No Puppeteer)</div>
+                                <div className="text-xs text-slate-500">v6.0 API Enabled</div>
                             </div>
                         </button>
                         
@@ -432,10 +517,10 @@ async function startBaileys() {
                              onClick={generatePackageJson}
                              className="flex-1 flex items-center justify-center p-3 rounded-lg border border-slate-700 hover:bg-slate-800 transition-colors"
                         >
-                            <FileJson className="w-5 h-5 mr-3 text-red-400" />
+                            <FileJson className="w-5 h-5 mr-3 text-green-400" />
                             <div className="text-left">
                                 <div className="font-bold text-sm">Scarica package.json</div>
-                                <div className="text-xs text-slate-500">Nuove Dipendenze v4.1</div>
+                                <div className="text-xs text-slate-500">Dependencies V6.0</div>
                             </div>
                         </button>
                     </div>
@@ -444,30 +529,30 @@ async function startBaileys() {
                 {/* 2. Connection Link Section */}
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 relative overflow-hidden">
                     <h3 className="text-lg font-bold mb-4 flex items-center text-slate-900">
-                        <LinkIcon className="w-5 h-5 mr-2 text-blue-600" />
-                        Step 2: Verifica e Connetti
+                        <LinkIcon className="w-5 h-5 mr-2 text-emerald-600" />
+                        Step 2: Connetti Dashboard al Server
                     </h3>
                     <p className="text-sm text-slate-500 mb-4">
-                        Dopo aver caricato i file e riavviato su FastComet, apri questo link. <br/>
-                        <span className="font-bold text-slate-700">Se vedi una pagina AZZURRA, è la V4.1 corretta. Se è bianca, è ancora la vecchia.</span>
+                        Incolla qui l'URL del tuo server FastComet (es. <code>https://app.miosito.com</code>). 
+                        Questo permette alla dashboard di inviare le modifiche al bot in tempo reale.
                     </p>
                     
                     <div className="flex gap-2">
                         <input 
                             type="text" 
-                            placeholder="https://iltuosito.com/bot/"
+                            placeholder="https://app.tuodominio.com"
                             value={serverUrl}
                             onChange={(e) => handleUrlChange(e.target.value)}
-                            className="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-sm"
+                            className={`flex-1 px-4 py-2 border rounded-lg text-sm ${!serverUrl && isDirty ? 'border-amber-300 bg-amber-50' : 'border-slate-300'}`}
                         />
                         <a 
                             href={serverUrl || '#'}
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={(e) => !serverUrl && e.preventDefault()}
-                            className={`px-6 py-2 rounded-lg font-bold text-white flex items-center ${serverUrl ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-300 cursor-not-allowed'}`}
+                            className={`px-6 py-2 rounded-lg font-bold text-white flex items-center ${serverUrl ? 'bg-slate-700 hover:bg-slate-800' : 'bg-slate-300 cursor-not-allowed'}`}
                         >
-                            APRI (Cerca Pagina Azzurra) <ExternalLink className="w-4 h-4 ml-2" />
+                            TEST URL <ExternalLink className="w-4 h-4 ml-2" />
                         </a>
                     </div>
                 </div>
@@ -522,11 +607,25 @@ async function startBaileys() {
                 </div>
 
                 <div className="pt-4 sticky bottom-4">
+                  {/* Status Messages */}
+                  {deployStatus === 'error' && (
+                      <div className="mb-3 bg-red-50 text-red-700 p-3 rounded-lg text-xs border border-red-100 flex items-start">
+                          <ShieldAlert className="w-4 h-4 mr-2 shrink-0" />
+                          {errorMessage}
+                      </div>
+                  )}
+                  {deployStatus === 'success' && (
+                      <div className="mb-3 bg-emerald-50 text-emerald-700 p-3 rounded-lg text-xs border border-emerald-100 flex items-center">
+                          <Check className="w-4 h-4 mr-2" />
+                          Configurazione inviata al server con successo!
+                      </div>
+                  )}
+
                   <button
                     onClick={handleDeploy}
-                    disabled={(!isDirty && !!localConfig.apiKey) || isDeploying}
+                    disabled={(!isDirty && deployStatus !== 'error') || isDeploying}
                     className={`w-full flex items-center justify-center py-4 px-4 rounded-xl font-bold text-white transition-all shadow-lg transform active:scale-95 border-b-4 ${
-                      isDirty || !localConfig.apiKey
+                      isDirty || deployStatus === 'error'
                         ? 'bg-[#00a884] hover:bg-[#008f6f] border-[#007a5e] shadow-emerald-200' 
                         : 'bg-slate-300 border-slate-400 cursor-not-allowed shadow-none text-slate-500'
                     }`}
@@ -534,31 +633,36 @@ async function startBaileys() {
                     {isDeploying ? (
                         <>
                             <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                            Salvataggio...
+                            Invio al Server...
                         </>
                     ) : (
                         <>
                             <UploadCloud className="w-5 h-5 mr-2" />
-                            {isDirty ? 'Aggiorna Configurazione' : 'Configurazione Salvata'}
+                            {isDirty ? 'Aggiorna Configurazione Server' : 'Configurazione Sincronizzata'}
                         </>
                     )}
                   </button>
+                  {!serverUrl && (
+                      <p className="text-center text-[10px] text-slate-400 mt-2">
+                          *URL Server non impostato. Salvataggio solo locale.
+                      </p>
+                  )}
                 </div>
             </div>
         </div>
 
-        {/* Modal Guida FastComet V4.1 */}
+        {/* Modal Guida FastComet V6.0 */}
         {showDeployGuide && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-0 overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]">
-              <div className="bg-blue-600 p-6 text-white flex justify-between items-center shrink-0">
+              <div className="bg-slate-800 p-6 text-white flex justify-between items-center shrink-0">
                   <div className="flex items-center space-x-3">
                      <div className="bg-white/20 p-2 rounded-lg">
-                        <Trash2 className="w-6 h-6 text-white" />
+                        <Terminal className="w-6 h-6 text-white" />
                      </div>
                      <div>
-                        <h2 className="text-xl font-bold">Installazione Pulita V4.1</h2>
-                        <p className="text-blue-100 text-sm">Passaggio a Baileys (No Puppeteer)</p>
+                        <h2 className="text-xl font-bold">Aggiornamento V6.0 (API)</h2>
+                        <p className="text-slate-300 text-sm">Abilita il controllo remoto</p>
                      </div>
                   </div>
                   <button onClick={() => setShowDeployGuide(false)} className="bg-white/10 hover:bg-white/20 p-2 rounded-full transition-colors">
@@ -567,30 +671,22 @@ async function startBaileys() {
               </div>
               
               <div className="p-8 overflow-y-auto">
-                 <div className="bg-red-50 border border-red-100 rounded-lg p-4 mb-6 text-sm text-red-800 flex items-start">
-                    <ShieldAlert className="w-5 h-5 mr-3 shrink-0 mt-0.5" />
+                 <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-6 text-sm text-blue-800 flex items-start">
+                    <Globe className="w-5 h-5 mr-3 shrink-0 mt-0.5" />
                     <p>
-                        <strong>Se vedi errore Puppeteer:</strong> Significa che stai ancora usando i file vecchi. La V4.1 non ha Puppeteer. Segui la procedura qui sotto per rimuoverli.
+                        <strong>PERCHÉ AGGIORNARE?</strong> <br/>
+                        La V6.0 abilita l'endpoint <code>/api/update-config</code>. Senza questo file, il tasto "Aggiorna Configurazione" della dashboard darà errore perché il server non sa come ricevere i dati.
                     </p>
                  </div>
 
-                 <h3 className="font-bold text-slate-900 mb-4">Procedura CLEAN INSTALL:</h3>
+                 <h3 className="font-bold text-slate-900 mb-4">Procedura di Aggiornamento:</h3>
                  <ol className="list-decimal list-inside space-y-4 text-slate-600 ml-2 text-sm">
-                    <li>Scarica i nuovi file <strong>server.js</strong> (V4.1) e <strong>package.json</strong> da questa schermata.</li>
-                    <li>
-                        Vai su FastComet File Manager e <strong>CANCELLA</strong> la cartella <code>node_modules</code>.
-                        <br/><span className="text-xs text-slate-400 ml-5">Questo rimuove la vecchia libreria Puppeteer.</span>
-                    </li>
-                    <li>Carica i due nuovi file sovrascrivendo quelli esistenti.</li>
-                    <li>Vai su <strong>Setup Node.js App</strong> nel cPanel.</li>
-                    <li>Clicca il pulsante <strong>Run NPM Install</strong> e aspetta che finisca.</li>
-                    <li>Clicca <strong>RESTART</strong>.</li>
+                    <li>Scarica il nuovo file <strong>server.js (V6.0)</strong> dal tasto a sinistra.</li>
+                    <li>Accedi al File Manager del tuo hosting (FastComet).</li>
+                    <li>Sovrascrivi il vecchio file <code>server.js</code> con quello nuovo.</li>
+                    <li>Riavvia l'applicazione Node.js dal pannello di controllo.</li>
+                    <li>Copia l'URL del tuo sito (es. <code>https://app.miosito.com</code>) e incollalo nel campo "Step 2" qui nella dashboard.</li>
                  </ol>
-                 
-                 <div className="mt-6 p-4 bg-blue-50 border border-blue-100 rounded text-center">
-                     <p className="text-blue-800 font-bold text-sm">Come capire se funziona?</p>
-                     <p className="text-blue-600 text-xs">Apri il tuo link. Se la pagina è <strong className="text-blue-800">AZZURRA</strong>, hai installato la V4.1 correttamente.</p>
-                 </div>
               </div>
               
               <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end">

@@ -1,3 +1,4 @@
+
 export enum Sender {
   USER = 'user',
   BOT = 'bot'
@@ -29,6 +30,7 @@ export interface User {
 
 export interface BotAccount {
   id: string;
+  instanceId: string; // PlanifyX style ID (e.g. 692C275AE02BB)
   userId: string; // FONDAMENTALE: Collega il bot all'utente specifico
   phoneNumber: string; 
   name: string; 
