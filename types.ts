@@ -27,6 +27,11 @@ export interface User {
   role: 'admin';
 }
 
+export interface SupabaseConfig {
+  url: string;
+  key: string;
+}
+
 export interface BotAccount {
   id: string;
   instanceId: string; // PlanifyX style ID (e.g. 692C275AE02BB)

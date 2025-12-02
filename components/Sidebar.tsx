@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { Settings, MessageSquare, LayoutDashboard, Database, LogOut, Shield } from 'lucide-react';
+import { Settings, MessageSquare, LayoutDashboard, Database, LogOut, Shield, Cloud } from 'lucide-react';
 import { User as UserType } from '../types';
 
 interface SidebarProps {
@@ -27,7 +26,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, accou
             </div>
             <div className="overflow-hidden">
                 <div className="font-bold text-sm truncate">{user.username}</div>
-                <div className="text-[10px] text-emerald-400 uppercase font-bold tracking-wider">Master Access</div>
+                <div className="text-[10px] text-emerald-400 uppercase font-bold tracking-wider flex items-center">
+                    <Cloud className="w-3 h-3 mr-1" /> Cloud Sync
+                </div>
             </div>
         </div>
       )}
@@ -89,7 +90,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, accou
         <div className="bg-slate-800 rounded-lg p-3 mt-4 hidden md:block">
           <p className="text-xs text-slate-400 mb-1">Versione Sistema</p>
           <div className="flex items-center justify-between">
-            <span className="font-semibold text-xs text-slate-300">v17.0 Token Auth</span>
+            <span className="font-semibold text-xs text-slate-300">v18.0 Cloud DB</span>
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
           </div>
         </div>

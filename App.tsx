@@ -1,18 +1,23 @@
-
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { ConfigScreen } from './components/ConfigScreen';
 import { ChatSimulator } from './components/ChatSimulator';
 import { AccountDashboard } from './components/AccountDashboard';
 import { AuthScreen } from './components/AuthScreen';
+import { DatabaseConfigScreen } from './components/DatabaseConfigScreen';
 import { BotAccount, DEFAULT_INSTRUCTION, User } from './types';
 import { initChatSession } from './services/geminiService';
 import { authService } from './services/authService';
+import { supabaseService } from './services/supabaseService';
 
 const App: React.FC = () => {
   // Auth State
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
+  
+  // Database State
+  const [isDbConfigured, setIsDbConfigured] = useState(false);
+  const [isDbLoading, setIsDbLoading] = useState(false);
 
   // App State
   const [activeTab, setActiveTab] = useState<'accounts' | 'config' | 'chat'>('accounts');
@@ -26,38 +31,37 @@ const App: React.FC = () => {
     const user = authService.getCurrentUser();
     if (user) {
       setCurrentUser(user);
-      loadUserAccounts(user.id);
+      // Check if DB is already configured on this machine
+      const savedConfig = supabaseService.getSavedConfig();
+      if (savedConfig && supabaseService.init(savedConfig.url, savedConfig.key)) {
+          setIsDbConfigured(true);
+          // Load nodes immediately
+          loadCloudNodes();
+      }
     }
     setIsAuthChecking(false);
   }, []);
 
-  // 2. Load Accounts specfic to User
-  const loadUserAccounts = (userId: string) => {
+  // 2. Load Accounts from Cloud
+  const loadCloudNodes = async () => {
+    setIsDbLoading(true);
     try {
-      const saved = localStorage.getItem(`saas_data_${userId}`);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        setAccounts(parsed.map((acc: any) => ({
-          ...acc,
-          lastActive: acc.lastActive ? new Date(acc.lastActive) : undefined
-        })));
-      } else {
-        setAccounts([]);
-      }
+        // We use the Master Token as the 'User Token' in the DB
+        // In this architecture, everyone with the master token shares the same DB slice
+        // You can change this to use unique IDs if needed.
+        const token = "ALEASISTEMI1409"; 
+        const nodes = await supabaseService.loadNodes(token);
+        setAccounts(nodes);
     } catch (e) {
-      console.error("Failed to load user accounts", e);
-      setAccounts([]);
+        console.error("Cloud Load Error", e);
+        // Fallback or empty
+        setAccounts([]);
+    } finally {
+        setIsDbLoading(false);
     }
   };
 
-  // 3. Save Accounts whenever they change (Only if logged in)
-  useEffect(() => {
-    if (currentUser) {
-      localStorage.setItem(`saas_data_${currentUser.id}`, JSON.stringify(accounts));
-    }
-  }, [accounts, currentUser]);
-
-  // 4. Gemini Init
+  // 3. Gemini Init (Existing Logic)
   useEffect(() => {
     if (selectedAccount && selectedAccount.isActive && selectedAccount.status === 'connected') {
       initChatSession(selectedAccount.config);
@@ -68,7 +72,19 @@ const App: React.FC = () => {
 
   const handleLoginSuccess = (user: User) => {
     setCurrentUser(user);
-    loadUserAccounts(user.id);
+    // Check DB config again just in case
+    const savedConfig = supabaseService.getSavedConfig();
+    if (savedConfig && supabaseService.init(savedConfig.url, savedConfig.key)) {
+        setIsDbConfigured(true);
+        loadCloudNodes();
+    } else {
+        setIsDbConfigured(false);
+    }
+  };
+
+  const handleDbConfigured = () => {
+      setIsDbConfigured(true);
+      loadCloudNodes();
   };
 
   const handleLogout = () => {
@@ -76,6 +92,8 @@ const App: React.FC = () => {
     setCurrentUser(null);
     setAccounts([]);
     setSelectedAccountId(null);
+    // Optional: Clear DB config on logout? No, keep it for convenience on same PC
+    // supabaseService.clearConfig(); 
   };
 
   // Helper to generate PlanifyX style Instance ID
@@ -83,13 +101,13 @@ const App: React.FC = () => {
     return Array.from({length: 13}, () => Math.floor(Math.random() * 16).toString(16)).join('').toUpperCase();
   };
 
-  const handleCreateAccount = (name: string, phoneNumber: string) => {
+  const handleCreateAccount = async (name: string, phoneNumber: string) => {
     if (!currentUser) return;
     
     const newAccount: BotAccount = {
       id: Date.now().toString(),
-      instanceId: generateInstanceId(), // Generates something like 692C275AE02BB
-      userId: currentUser.id, // Bind to user
+      instanceId: generateInstanceId(),
+      userId: currentUser.id, 
       name,
       phoneNumber,
       isActive: true,
@@ -102,17 +120,30 @@ const App: React.FC = () => {
         temperature: 0.7
       }
     };
+
+    // Optimistic UI Update
     setAccounts([...accounts, newAccount]);
     setSelectedAccountId(newAccount.id);
+
+    // Cloud Save
+    await supabaseService.saveNode("ALEASISTEMI1409", newAccount);
   };
 
-  const handleUpdateAccount = (updatedAccount: BotAccount) => {
+  const handleUpdateAccount = async (updatedAccount: BotAccount) => {
+    // Optimistic
     setAccounts(prev => prev.map(acc => acc.id === updatedAccount.id ? updatedAccount : acc));
+    
+    // Cloud Save
+    await supabaseService.saveNode("ALEASISTEMI1409", updatedAccount);
   };
 
-  const handleDeleteAccount = (id: string) => {
+  const handleDeleteAccount = async (id: string) => {
+    // Optimistic
     setAccounts(prev => prev.filter(acc => acc.id !== id));
     if (selectedAccountId === id) setSelectedAccountId(null);
+
+    // Cloud Delete
+    await supabaseService.deleteNode(id);
   };
 
   const handleTabChange = (tab: 'accounts' | 'config' | 'chat') => {
@@ -133,10 +164,22 @@ const App: React.FC = () => {
 
   if (isAuthChecking) return <div className="flex h-screen items-center justify-center bg-slate-900 text-white">Caricamento SaaS...</div>;
 
+  // 1. Auth Check
   if (!currentUser) {
     return <AuthScreen onLoginSuccess={handleLoginSuccess} />;
   }
 
+  // 2. Database Config Check
+  if (!isDbConfigured) {
+      return <DatabaseConfigScreen onConfigured={handleDbConfigured} />;
+  }
+
+  // 3. Loading Data
+  if (isDbLoading && accounts.length === 0) {
+       return <div className="flex h-screen items-center justify-center bg-slate-50 text-slate-500 font-bold animate-pulse">Sincronizzazione Cloud...</div>;
+  }
+
+  // 4. Main App
   return (
     <div className="flex h-screen w-full bg-slate-50 overflow-hidden font-sans text-slate-800">
       <Sidebar 
