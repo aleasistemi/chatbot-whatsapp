@@ -1,5 +1,6 @@
+
 import React from 'react';
-import { Settings, MessageSquare, LayoutDashboard, Database, LogOut, User } from 'lucide-react';
+import { Settings, MessageSquare, LayoutDashboard, Database, LogOut, Shield } from 'lucide-react';
 import { User as UserType } from '../types';
 
 interface SidebarProps {
@@ -20,11 +21,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, accou
 
       {/* User Profile Snippet */}
       {user && (
-        <div className="p-4 border-b border-slate-800 hidden md:flex items-center space-x-3 bg-slate-800/50">
-            <img src={user.avatar} alt="User" className="w-10 h-10 rounded-full border border-slate-600" />
+        <div className="p-4 border-b border-slate-800 hidden md:flex items-center space-x-3 bg-slate-800/30">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center text-white shadow-lg">
+                <Shield className="w-5 h-5" />
+            </div>
             <div className="overflow-hidden">
-                <div className="font-bold text-sm truncate">{user.name}</div>
-                <div className="text-xs text-slate-400 truncate">{user.email}</div>
+                <div className="font-bold text-sm truncate">{user.username}</div>
+                <div className="text-[10px] text-emerald-400 uppercase font-bold tracking-wider">Master Access</div>
             </div>
         </div>
       )}
@@ -84,10 +87,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, accou
         </button>
         
         <div className="bg-slate-800 rounded-lg p-3 mt-4 hidden md:block">
-          <p className="text-xs text-slate-400 mb-1">Piano Utente</p>
+          <p className="text-xs text-slate-400 mb-1">Versione Sistema</p>
           <div className="flex items-center justify-between">
-            <span className="font-semibold text-sm">SaaS Premium</span>
-            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+            <span className="font-semibold text-xs text-slate-300">v17.0 Token Auth</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
           </div>
         </div>
       </div>

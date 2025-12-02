@@ -1,51 +1,27 @@
+
 import { User } from '../types';
 
-// Simulazione Database Utenti (In produzione userebbe Supabase/Firebase)
-const USERS_KEY = 'saas_users_db';
-const SESSION_KEY = 'saas_current_session';
+// IL TUO TOKEN MASTER (Puoi cambiarlo qui se vuoi)
+const MASTER_TOKEN = "ALEASISTEMI1409";
+const SESSION_KEY = 'saas_admin_session';
 
 export const authService = {
-  // Registrazione Nuovo Utente
-  register: (name: string, email: string, password: string): { success: boolean; message?: string; user?: User } => {
-    const usersStr = localStorage.getItem(USERS_KEY);
-    const users: any[] = usersStr ? JSON.parse(usersStr) : [];
-
-    if (users.find(u => u.email === email)) {
-      return { success: false, message: "Email già registrata." };
+  
+  // Login tramite Token
+  loginWithToken: (token: string): { success: boolean; message?: string; user?: User } => {
+    // Normalizza il token (trim spazi, uppercase opzionale se vuoi)
+    if (token.trim() === MASTER_TOKEN) {
+      const adminUser: User = {
+        id: 'admin_master_id',
+        username: 'Admin AleaSistemi',
+        role: 'admin'
+      };
+      
+      localStorage.setItem(SESSION_KEY, JSON.stringify(adminUser));
+      return { success: true, user: adminUser };
     }
 
-    const newUser = {
-      id: Date.now().toString(),
-      name,
-      email,
-      password, // In produzione va hashata!
-      avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=00a884&color=fff`
-    };
-
-    users.push(newUser);
-    localStorage.setItem(USERS_KEY, JSON.stringify(users));
-    
-    // Auto login
-    localStorage.setItem(SESSION_KEY, JSON.stringify(newUser));
-    return { success: true, user: newUser };
-  },
-
-  // Login Utente Esistente
-  login: (email: string, password: string): { success: boolean; message?: string; user?: User } => {
-    const usersStr = localStorage.getItem(USERS_KEY);
-    const users: any[] = usersStr ? JSON.parse(usersStr) : [];
-
-    const user = users.find(u => u.email === email && u.password === password);
-
-    if (!user) {
-      return { success: false, message: "Credenziali non valide." };
-    }
-
-    const safeUser = { ...user };
-    delete safeUser.password; // Non salviamo la password in sessione
-
-    localStorage.setItem(SESSION_KEY, JSON.stringify(safeUser));
-    return { success: true, user: safeUser };
+    return { success: false, message: "Token di accesso non valido." };
   },
 
   // Recupera Utente Corrente

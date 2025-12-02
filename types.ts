@@ -23,9 +23,8 @@ export type ServerStatus = 'online' | 'offline' | 'syncing' | 'error';
 
 export interface User {
   id: string;
-  email: string;
-  name: string;
-  avatar?: string;
+  username: string;
+  role: 'admin';
 }
 
 export interface BotAccount {
@@ -50,4 +49,4 @@ Il tuo compito è rispondere ai clienti fornendo informazioni chiare e precise.
 Sii cortese, professionale e usa emoji occasionalmente.
 Se non conosci la risposta, chiedi di attendere un operatore umano.`;
 
-export const MAX_ACCOUNTS = 3;
+export const MAX_ACCOUNTS = 10;
