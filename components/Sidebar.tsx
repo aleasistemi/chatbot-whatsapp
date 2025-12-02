@@ -1,5 +1,6 @@
+
 import React from 'react';
-import { Settings, MessageSquare, LayoutDashboard, Database, LogOut, Shield, Cloud } from 'lucide-react';
+import { Settings, MessageSquare, LayoutDashboard, Database, LogOut, Shield, Cloud, Cog } from 'lucide-react';
 import { User as UserType } from '../types';
 
 interface SidebarProps {
@@ -8,9 +9,10 @@ interface SidebarProps {
   accountCount: number;
   user: UserType | null;
   onLogout: () => void;
+  onOpenDbConfig: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, accountCount, user, onLogout }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, accountCount, user, onLogout, onOpenDbConfig }) => {
   return (
     <div className="w-20 md:w-64 bg-slate-900 text-white flex flex-col h-full shrink-0 shadow-xl relative z-20">
       <div className="h-16 flex items-center justify-center md:justify-start md:px-6 border-b border-slate-800 bg-slate-950">
@@ -79,6 +81,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, accou
       </nav>
 
       <div className="p-4 border-t border-slate-800">
+        {/* DB Config Button */}
+        <button 
+            onClick={onOpenDbConfig}
+            className="w-full flex items-center justify-center md:justify-start px-2 py-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors mb-1"
+            title="Impostazioni Database"
+        >
+            <Cog className="w-5 h-5" />
+            <span className="hidden md:block ml-3 font-medium text-sm">Cloud Config</span>
+        </button>
+
         <button 
             onClick={onLogout}
             className="w-full flex items-center justify-center md:justify-start px-2 py-2 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-lg transition-colors"

@@ -1,19 +1,51 @@
+
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { BotAccount, SupabaseConfig } from '../types';
 
 let supabase: SupabaseClient | null = null;
 let currentConfig: SupabaseConfig | null = null;
 
+// DEFAULT CONFIGURATION (Hardcoded for instant access)
+const DEFAULT_URL = "https://ugtxetihyghgerrazanq.supabase.co";
+const DEFAULT_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVndHhldGloeWdoZ2VycmF6YW5xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ2NTk3NDEsImV4cCI6MjA4MDIzNTc0MX0.8Ylw8zoQubEgSveV-Gx-szvZXBpMRNGZ61GzQsZFUg0";
+
 export const supabaseService = {
   
   // Inizializza il client
-  init: (url: string, key: string) => {
+  init: (url?: string, key?: string) => {
     try {
-      if (!url || !key) return false;
-      supabase = createClient(url, key);
-      currentConfig = { url, key };
-      // Salva config nel browser per non reinserirla sempre su QUESTO pc
-      localStorage.setItem('supabase_config', JSON.stringify({ url, key }));
+      // 1. Try passed args
+      // 2. Try localStorage
+      // 3. Fallback to Hardcoded Defaults
+      
+      let targetUrl = url;
+      let targetKey = key;
+
+      if (!targetUrl || !targetKey) {
+          const saved = localStorage.getItem('supabase_config');
+          if (saved) {
+              const parsed = JSON.parse(saved);
+              targetUrl = parsed.url;
+              targetKey = parsed.key;
+          }
+      }
+
+      // If still nothing, use defaults
+      if (!targetUrl || !targetKey) {
+          targetUrl = DEFAULT_URL;
+          targetKey = DEFAULT_KEY;
+      }
+
+      if (!targetUrl || !targetKey) return false;
+
+      supabase = createClient(targetUrl, targetKey);
+      currentConfig = { url: targetUrl, key: targetKey };
+      
+      // Save config locally ONLY if it differs from default (optional, but keeps logic clean)
+      if (targetUrl !== DEFAULT_URL) {
+        localStorage.setItem('supabase_config', JSON.stringify({ url: targetUrl, key: targetKey }));
+      }
+      
       return true;
     } catch (e) {
       console.error("Supabase init error", e);
@@ -21,16 +53,11 @@ export const supabaseService = {
     }
   },
 
-  // Controlla se abbiamo già una configurazione salvata
-  getSavedConfig: (): SupabaseConfig | null => {
-    const saved = localStorage.getItem('supabase_config');
-    return saved ? JSON.parse(saved) : null;
-  },
+  getCurrentConfig: () => currentConfig || { url: DEFAULT_URL, key: DEFAULT_KEY },
 
-  clearConfig: () => {
-    localStorage.removeItem('supabase_config');
-    supabase = null;
-    currentConfig = null;
+  resetToDefault: () => {
+      localStorage.removeItem('supabase_config');
+      return supabaseService.init(DEFAULT_URL, DEFAULT_KEY);
   },
 
   isConfigured: () => !!supabase,

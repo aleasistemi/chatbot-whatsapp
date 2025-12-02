@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { ConfigScreen } from './components/ConfigScreen';
@@ -9,6 +10,7 @@ import { BotAccount, DEFAULT_INSTRUCTION, User } from './types';
 import { initChatSession } from './services/geminiService';
 import { authService } from './services/authService';
 import { supabaseService } from './services/supabaseService';
+import { X } from 'lucide-react';
 
 const App: React.FC = () => {
   // Auth State
@@ -16,8 +18,8 @@ const App: React.FC = () => {
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   
   // Database State
-  const [isDbConfigured, setIsDbConfigured] = useState(false);
   const [isDbLoading, setIsDbLoading] = useState(false);
+  const [showDbSettings, setShowDbSettings] = useState(false);
 
   // App State
   const [activeTab, setActiveTab] = useState<'accounts' | 'config' | 'chat'>('accounts');
@@ -26,18 +28,14 @@ const App: React.FC = () => {
 
   const selectedAccount = accounts.find(a => a.id === selectedAccountId) || null;
 
-  // 1. Check Login on Mount
+  // 1. Check Login on Mount & Init DB
   useEffect(() => {
     const user = authService.getCurrentUser();
     if (user) {
       setCurrentUser(user);
-      // Check if DB is already configured on this machine
-      const savedConfig = supabaseService.getSavedConfig();
-      if (savedConfig && supabaseService.init(savedConfig.url, savedConfig.key)) {
-          setIsDbConfigured(true);
-          // Load nodes immediately
-          loadCloudNodes();
-      }
+      // Init DB with defaults immediately
+      supabaseService.init();
+      loadCloudNodes();
     }
     setIsAuthChecking(false);
   }, []);
@@ -46,9 +44,6 @@ const App: React.FC = () => {
   const loadCloudNodes = async () => {
     setIsDbLoading(true);
     try {
-        // We use the Master Token as the 'User Token' in the DB
-        // In this architecture, everyone with the master token shares the same DB slice
-        // You can change this to use unique IDs if needed.
         const token = "ALEASISTEMI1409"; 
         const nodes = await supabaseService.loadNodes(token);
         setAccounts(nodes);
@@ -72,19 +67,9 @@ const App: React.FC = () => {
 
   const handleLoginSuccess = (user: User) => {
     setCurrentUser(user);
-    // Check DB config again just in case
-    const savedConfig = supabaseService.getSavedConfig();
-    if (savedConfig && supabaseService.init(savedConfig.url, savedConfig.key)) {
-        setIsDbConfigured(true);
-        loadCloudNodes();
-    } else {
-        setIsDbConfigured(false);
-    }
-  };
-
-  const handleDbConfigured = () => {
-      setIsDbConfigured(true);
-      loadCloudNodes();
+    // Init DB immediately after login
+    supabaseService.init();
+    loadCloudNodes();
   };
 
   const handleLogout = () => {
@@ -92,8 +77,11 @@ const App: React.FC = () => {
     setCurrentUser(null);
     setAccounts([]);
     setSelectedAccountId(null);
-    // Optional: Clear DB config on logout? No, keep it for convenience on same PC
-    // supabaseService.clearConfig(); 
+  };
+
+  const handleDbReconfigured = () => {
+      setShowDbSettings(false);
+      loadCloudNodes();
   };
 
   // Helper to generate PlanifyX style Instance ID
@@ -169,17 +157,7 @@ const App: React.FC = () => {
     return <AuthScreen onLoginSuccess={handleLoginSuccess} />;
   }
 
-  // 2. Database Config Check
-  if (!isDbConfigured) {
-      return <DatabaseConfigScreen onConfigured={handleDbConfigured} />;
-  }
-
-  // 3. Loading Data
-  if (isDbLoading && accounts.length === 0) {
-       return <div className="flex h-screen items-center justify-center bg-slate-50 text-slate-500 font-bold animate-pulse">Sincronizzazione Cloud...</div>;
-  }
-
-  // 4. Main App
+  // 2. Main App
   return (
     <div className="flex h-screen w-full bg-slate-50 overflow-hidden font-sans text-slate-800">
       <Sidebar 
@@ -188,6 +166,7 @@ const App: React.FC = () => {
         accountCount={accounts.length}
         user={currentUser}
         onLogout={handleLogout}
+        onOpenDbConfig={() => setShowDbSettings(true)}
       />
       
       <main className="flex-1 h-full relative overflow-hidden flex flex-col">
@@ -212,6 +191,21 @@ const App: React.FC = () => {
 
         {activeTab === 'chat' && selectedAccount && (
           <ChatSimulator account={selectedAccount} />
+        )}
+
+        {/* Database Config Modal */}
+        {showDbSettings && (
+            <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
+                <div className="relative w-full max-w-2xl">
+                    <button 
+                        onClick={() => setShowDbSettings(false)}
+                        className="absolute -top-4 -right-4 bg-white rounded-full p-2 hover:bg-slate-100 z-50 shadow-lg"
+                    >
+                        <X className="w-5 h-5" />
+                    </button>
+                    <DatabaseConfigScreen onConfigured={handleDbReconfigured} />
+                </div>
+            </div>
         )}
       </main>
     </div>
