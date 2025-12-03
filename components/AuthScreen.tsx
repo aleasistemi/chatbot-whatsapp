@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { authService } from '../services/authService';
 import { User } from '../types';
+import { BRANDING } from '../constants';
 import { Key, ArrowRight, Loader2, Database, ShieldCheck } from 'lucide-react';
 
 interface AuthScreenProps {
@@ -42,8 +43,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
             <div className="mx-auto w-16 h-16 bg-[#00a884]/20 rounded-2xl flex items-center justify-center mb-4 ring-1 ring-[#00a884]/50">
                 <Database className="w-8 h-8 text-[#00a884]" />
             </div>
-            <h2 className="text-3xl font-bold text-white tracking-tight">BotManager</h2>
-            <p className="text-slate-400 mt-2 text-sm">Accesso Riservato Amministratori</p>
+            <h2 className="text-3xl font-bold text-white tracking-tight">{BRANDING.appName}</h2>
+            <p className="text-slate-400 mt-2 text-sm">Accesso Riservato</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -87,7 +88,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
 
         <div className="mt-8 text-center">
             <p className="text-xs text-slate-600">
-                &copy; 2024 AleaSistemi SaaS. Secure Login.
+                {BRANDING.footerText}
             </p>
         </div>
       </div>

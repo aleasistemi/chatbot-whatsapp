@@ -2,6 +2,7 @@
 import React from 'react';
 import { Settings, MessageSquare, LayoutDashboard, Database, LogOut, Shield, Cloud, Cog } from 'lucide-react';
 import { User as UserType } from '../types';
+import { BRANDING } from '../constants';
 
 interface SidebarProps {
   activeTab: 'accounts' | 'config' | 'chat';
@@ -17,7 +18,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, accou
     <div className="w-20 md:w-64 bg-slate-900 text-white flex flex-col h-full shrink-0 shadow-xl relative z-20">
       <div className="h-16 flex items-center justify-center md:justify-start md:px-6 border-b border-slate-800 bg-slate-950">
         <Database className="w-7 h-7 text-[#00a884]" />
-        <span className="hidden md:block ml-3 font-bold text-lg tracking-tight">BotManager</span>
+        <span className="hidden md:block ml-3 font-bold text-lg tracking-tight truncate">{BRANDING.appName}</span>
       </div>
 
       {/* User Profile Snippet */}
@@ -81,7 +82,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, accou
       </nav>
 
       <div className="p-4 border-t border-slate-800">
-        {/* DB Config Button */}
         <button 
             onClick={onOpenDbConfig}
             className="w-full flex items-center justify-center md:justify-start px-2 py-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors mb-1"
@@ -100,9 +100,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, accou
         </button>
         
         <div className="bg-slate-800 rounded-lg p-3 mt-4 hidden md:block">
-          <p className="text-xs text-slate-400 mb-1">Versione Sistema</p>
+          <p className="text-xs text-slate-400 mb-1">System Status</p>
           <div className="flex items-center justify-between">
-            <span className="font-semibold text-xs text-slate-300">v18.0 Cloud DB</span>
+            <span className="font-semibold text-xs text-slate-300">v19.0 SaaS Core</span>
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
           </div>
         </div>

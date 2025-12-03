@@ -1,19 +1,18 @@
 
 import { User } from '../types';
+import { BRANDING } from '../constants';
 
-// IL TUO TOKEN MASTER (Puoi cambiarlo qui se vuoi)
-const MASTER_TOKEN = "ALEASISTEMI1409";
 const SESSION_KEY = 'saas_admin_session';
 
 export const authService = {
   
   // Login tramite Token
   loginWithToken: (token: string): { success: boolean; message?: string; user?: User } => {
-    // Normalizza il token (trim spazi, uppercase opzionale se vuoi)
-    if (token.trim() === MASTER_TOKEN) {
+    // Normalizza il token
+    if (token.trim() === BRANDING.masterToken) {
       const adminUser: User = {
         id: 'admin_master_id',
-        username: 'Admin AleaSistemi',
+        username: BRANDING.adminName,
         role: 'admin'
       };
       

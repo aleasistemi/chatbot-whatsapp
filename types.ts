@@ -32,6 +32,14 @@ export interface SupabaseConfig {
   key: string;
 }
 
+export interface BrandConfig {
+  appName: string;
+  footerText: string;
+  adminName: string;
+  masterToken: string; // Default fallback
+  primaryColor: string; // Tailwind class identifier (e.g. 'emerald')
+}
+
 export interface BotAccount {
   id: string;
   instanceId: string; // PlanifyX style ID (e.g. 692C275AE02BB)

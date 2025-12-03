@@ -1,23 +1,16 @@
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { BotAccount, SupabaseConfig } from '../types';
+import { SUPABASE_DEFAULTS } from '../constants';
 
 let supabase: SupabaseClient | null = null;
 let currentConfig: SupabaseConfig | null = null;
-
-// DEFAULT CONFIGURATION (Hardcoded for instant access)
-const DEFAULT_URL = "https://ugtxetihyghgerrazanq.supabase.co";
-const DEFAULT_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVndHhldGloeWdoZ2VycmF6YW5xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ2NTk3NDEsImV4cCI6MjA4MDIzNTc0MX0.8Ylw8zoQubEgSveV-Gx-szvZXBpMRNGZ61GzQsZFUg0";
 
 export const supabaseService = {
   
   // Inizializza il client
   init: (url?: string, key?: string) => {
     try {
-      // 1. Try passed args
-      // 2. Try localStorage
-      // 3. Fallback to Hardcoded Defaults
-      
       let targetUrl = url;
       let targetKey = key;
 
@@ -30,21 +23,16 @@ export const supabaseService = {
           }
       }
 
-      // If still nothing, use defaults
+      // Fallback to Constants / Env Vars
       if (!targetUrl || !targetKey) {
-          targetUrl = DEFAULT_URL;
-          targetKey = DEFAULT_KEY;
+          targetUrl = SUPABASE_DEFAULTS.url;
+          targetKey = SUPABASE_DEFAULTS.key;
       }
 
       if (!targetUrl || !targetKey) return false;
 
       supabase = createClient(targetUrl, targetKey);
       currentConfig = { url: targetUrl, key: targetKey };
-      
-      // Save config locally ONLY if it differs from default (optional, but keeps logic clean)
-      if (targetUrl !== DEFAULT_URL) {
-        localStorage.setItem('supabase_config', JSON.stringify({ url: targetUrl, key: targetKey }));
-      }
       
       return true;
     } catch (e) {
@@ -53,18 +41,17 @@ export const supabaseService = {
     }
   },
 
-  getCurrentConfig: () => currentConfig || { url: DEFAULT_URL, key: DEFAULT_KEY },
+  getCurrentConfig: () => currentConfig || { url: SUPABASE_DEFAULTS.url, key: SUPABASE_DEFAULTS.key },
 
   resetToDefault: () => {
       localStorage.removeItem('supabase_config');
-      return supabaseService.init(DEFAULT_URL, DEFAULT_KEY);
+      return supabaseService.init(SUPABASE_DEFAULTS.url, SUPABASE_DEFAULTS.key);
   },
 
   isConfigured: () => !!supabase,
 
   // --- CRUD OPERATIONS ---
 
-  // Carica tutti i nodi per un dato token master (userId)
   loadNodes: async (userToken: string): Promise<BotAccount[]> => {
     if (!supabase) throw new Error("Database non connesso");
     
@@ -78,11 +65,8 @@ export const supabaseService = {
       throw error;
     }
 
-    // Converti dal formato DB al formato App
     return data.map((row: any) => {
-        // La colonna data contiene il JSON dell'account
         const acc = row.data;
-        // Ripristina le date
         return {
             ...acc,
             lastActive: acc.lastActive ? new Date(acc.lastActive) : undefined
@@ -90,7 +74,6 @@ export const supabaseService = {
     });
   },
 
-  // Salva o Aggiorna un nodo
   saveNode: async (userToken: string, account: BotAccount) => {
     if (!supabase) return;
     
@@ -105,7 +88,6 @@ export const supabaseService = {
     if (error) console.error("Save Error", error);
   },
 
-  // Elimina un nodo
   deleteNode: async (id: string) => {
     if (!supabase) return;
 
