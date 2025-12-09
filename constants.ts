@@ -3,9 +3,9 @@ import { BrandConfig } from './types';
 
 // --- CONFIGURAZIONE BRANDING (PERSONALIZZA QUI) ---
 export const BRANDING: BrandConfig = {
-    appName: "WhatsApp Manager Pro",
-    footerText: "© 2025 ALEA SISTEMI srl. All rights reserved.",
-    adminName: "Admin",
+    appName: "WhatsApp ALEA",
+    footerText: "© 2025 ALEA SISTEMI Srl. All rights reserved.",
+    adminName: "Admin AleaSistemi",
     
     // Questo è il token di default se non impostato su Vercel
     masterToken: "ALEASISTEMI1409", 
